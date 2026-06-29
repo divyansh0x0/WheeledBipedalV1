@@ -3,6 +3,7 @@
 
 #define seconds 2
 [[noreturn]] int main() {
+    STM32::MemoryMap::RCC1->enablePeripheral(STM32::MemoryMap::APB1Peripheral::I2C2);
     STM32::MemoryMap::RCC1->enablePeripheral(STM32::MemoryMap::AHB1Peripheral::GPIOC);
     STM32::Pins::C13::enable();
 

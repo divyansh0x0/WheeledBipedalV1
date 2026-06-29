@@ -7,10 +7,6 @@ namespace STM32 {
     template<unsigned int addr, unsigned int index>
     class GPIO {
     public:
-        enum Port {
-            A, B, C
-        };
-
         enum Status {
             HIGH, LOW,
         };

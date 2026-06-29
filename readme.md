@@ -12,6 +12,19 @@ Specs:
 3. [Programming Manual](programming%20manual.pdf)
 ## Upload using DFU
 
+
+## Pin Layout:
+SDA2 SCL2 -> Multiplexer
+SDA1 SCL1 -> MPU6050
+
+
+## Flashing
+Using onboard usb:
 ```
 dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D BipedalV1.bin
+```
+
+Using st-link:
+```
+st-link 
 ```
