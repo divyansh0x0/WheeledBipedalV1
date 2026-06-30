@@ -141,9 +141,7 @@ namespace STM32::MemoryMap {
          * @param auto_reload Period count limit value (value written to ARR is auto_reload - 1).
          */
         // Target frequency in Hz, and your desired max value for 100% duty cycle
-        void setFrequency(uint32_t target_hz, uint32_t resolution = 1000) {
-            uint32_t system_clock = 72000000; // 72 MHz
-
+        void setFrequency(uint32_t system_clock, uint32_t target_hz, uint32_t resolution = 1000) {
             // Formula: PSC = SystemClock / (Frequency * ARR)
             // We subtract 1 because hardware registers are 0-indexed
             uint32_t psc_value = (system_clock / (target_hz * resolution)) - 1;
@@ -594,105 +592,154 @@ namespace STM32::MemoryMap {
         volatile register_t TRISE;
     };
 
-    struct DMAChannel {
-        volatile register_t CCR; //!< DMA channel x configuration register
-        volatile register_t CNDTR; //!< DMA channel x number of data register
-        volatile register_t CPAR; //!< DMA channel x peripheral address register
-        volatile register_t CMAR; //!< DMA channel x memory address register
-        register_t RESERVED; //!< Reserved for alignment. DO NOT WRITE TO IT (13.4.7 Register Map)
+struct DMAStream {
+        volatile register_t CR;   //!< Configuration register
+        volatile register_t NDTR; //!< Number of data register
+        volatile register_t PAR;  //!< Peripheral address register
+        volatile register_t M0AR; //!< Memory 0 address register
+        volatile register_t M1AR; //!< Memory 1 address register
+        volatile register_t FCR;  //!< FIFO control register
 
-        enum class DMAPriorityLevel : unsigned char {
+        enum class Channel : register_t {
+            CH0 = 0,
+            CH1 = 1,
+            CH2 = 2,
+            CH3 = 3,
+            CH4 = 4,
+            CH5 = 5,
+            CH6 = 6,
+            CH7 = 7,
+
+        };
+        enum class DMAPriorityLevel : register_t {
             LOW = 0b00,
             MEDIUM = 0b01,
             HIGH = 0b10,
             VERY_HIGH = 0b11
         };
 
-        enum class DMAMemorySize : unsigned char {
+        enum class DMAMemorySize : register_t {
             BYTE = 0b00,
             HALF_WORD = 0b01,
             WORD = 0b10,
         };
 
-        enum class TransferDirection : unsigned char {
-            FROM_PERIPHERAL_TO_MEMORY = 0b0,
-            FROM_MEMORY_TO_PERIPHERAL = 0b1,
+        enum class TransferDirection : register_t {
+            PERIPHERAL_TO_MEMORY = 0b00,
+            MEMORY_TO_PERIPHERAL = 0b01,
+            MEMORY_TO_MEMORY     = 0b10
         };
 
         bool isEnabled() const {
-            return CCR & 0b1;
+            return CR & 0b1;
+        }
+
+        void setEnabled(bool state) {
+            if (state) CR |= 1u;
+            else CR &= ~1u;
+        }
+
+
+        void setChannel(unsigned char channel) {
+            constexpr int bit_start = 25;
+            CR &= ~(0b111 << bit_start);
+            CR |= (static_cast<register_t>(channel) << bit_start);
         }
 
         void setPriorityLevel(DMAPriorityLevel level) {
-            constexpr int bit_start = 12;
-            // Clear last level
-            CCR &= ~(0b11 << bit_start);
-            // Set level
-            CCR |= (static_cast<register_t>(level) << bit_start);
+            constexpr int bit_start = 16;
+            CR &= ~(0b11 << bit_start);
+            CR |= (static_cast<register_t>(level) << bit_start);
         }
 
         void setSize(DMAMemorySize memory_size, DMAMemorySize peripheral_size) {
-            // set memory size
-            constexpr int m_bit_start = 10;
-            CCR &= ~(0b11 << m_bit_start);
-            // Set level
-            CCR |= (static_cast<register_t>(memory_size) << m_bit_start);
+            constexpr int m_bit_start = 13;
+            CR &= ~(0b11 << m_bit_start);
+            CR |= (static_cast<register_t>(memory_size) << m_bit_start);
 
-            // set peripheral size
-            constexpr int p_bit_start = 8;
-            CCR &= ~(0b11 << p_bit_start);
-            // Set level
-            CCR |= (static_cast<register_t>(peripheral_size) << p_bit_start);
-        }
-
-        void setPeripheralAddress(const uintptr_t *peripheral) {
-            if (isEnabled())
-                return;
-            CPAR = reinterpret_cast<register_t>(peripheral);
-        }
-
-        void setMemoryAddress(const uintptr_t *memory) {
-            if (isEnabled())
-                return;
-            CMAR = reinterpret_cast<register_t>(memory);
+            constexpr int p_bit_start = 11;
+            CR &= ~(0b11 << p_bit_start);
+            CR |= (static_cast<register_t>(peripheral_size) << p_bit_start);
         }
 
         void setDataTransferMode(const TransferDirection dir) {
-            constexpr unsigned int bit_start = 4;
-            CCR &= ~(0b1 << bit_start);
-            CCR |= (static_cast<register_t>(dir) << bit_start);
+            constexpr unsigned int bit_start = 6;
+            CR &= ~(0b11 << bit_start);
+            CR |= (static_cast<register_t>(dir) << bit_start);
         }
 
         void enableTransferCompleteInterrupt(bool enabled) {
-            constexpr unsigned int bit_start = 1;
-            CCR &= ~(0b1 << bit_start);
-            CCR |= (static_cast<register_t>(enabled) << bit_start);
+            constexpr unsigned int bit_start = 4;
+            if (enabled) CR |= (1u << bit_start);
+            else CR &= ~(1u << bit_start);
         }
+
+        void enableMemoryIncrement(bool enabled) {
+            constexpr unsigned int bit_start = 10;
+            if (enabled) CR |= (1u << bit_start);
+            else CR &= ~(1u << bit_start);
+        }
+
+        void setPeripheralAddress(const volatile void *peripheral) {
+            PAR = reinterpret_cast<register_t>(peripheral);
+        }
+
+        void setMemoryAddress(const volatile void *memory) {
+            M0AR = reinterpret_cast<register_t>(memory);
+        }
+
+        void setDataLength(uint32_t length) {
+            NDTR = length;
+        }
+};
+
+    struct DMAMemoryMap {
+        volatile register_t LISR;
+        volatile register_t HISR;
+        volatile register_t LIFCR;
+        volatile register_t HIFCR;
+        DMAStream STREAMS[8];
     };
 
-    struct DMA1MemoryMap {
-        volatile register_t ISR; //!< DMA interrupt status register
-        volatile register_t IFCR; //!< DMA interrupt flag clear register
-
-        // Channel array (DMA1 has 7 channels)
-        DMAChannel CH[7];
+    struct RTCReg {
+        volatile register_t TR;
+        volatile register_t DR;
+        volatile register_t CR;
+        volatile register_t ISR;
+        volatile register_t PRER;
+        volatile register_t WUTR;
+        volatile register_t CALIBR;
+        volatile register_t ALRMAR;
+        volatile register_t ALRMBR;
+        volatile register_t WPR;
+        volatile register_t SSR;
+        volatile register_t SHIFTR;
+        volatile register_t TSTR;
+        volatile register_t TSSSR;
+        volatile register_t CALR;
+        volatile register_t TAFCR;
+        volatile register_t ALRMASSR;
+        volatile register_t ALRMBSSR;
+        volatile register_t BKP0R;
+        volatile register_t BKP19R;
     };
 
-    struct DMA2MemoryMap {
-        volatile register_t ISR; //!< DMA interrupt status register
-        volatile register_t IFCR; //!< DMA interrupt flag clear register
-        // Channel array (DMA2 has 5 channels)
-        DMAChannel CH[5];
-    };
+    struct SysTickReg {
+        volatile register_t CTRL;
+        volatile register_t LOAD;
+        volatile register_t VAL;
+        volatile register_t CALIB;
 
+    };
     // =========================================================================
     // Peripheral Base Addresses
     // =========================================================================
+    inline const auto SysTick = reinterpret_cast<SysTickReg *>(0xE000'E010);
 
     /** @brief Flash Interface Register*/
-    inline const auto FlashInterface = reinterpret_cast<Flash *>(0x40023C00);
-    inline const auto DMA1 = reinterpret_cast<DMA1MemoryMap *>(0x4002'6000u);
-    inline const auto DMA2 = reinterpret_cast<DMA2MemoryMap *>(0x4002'6400u);
+    inline const auto FlashInterface = reinterpret_cast<Flash *>(0x4002'3C00);
+    inline const auto DMA1 = reinterpret_cast<DMAMemoryMap *>(0x4002'6000u);
+    inline const auto DMA2 = reinterpret_cast<DMAMemoryMap *>(0x4002'6400u);
     inline const auto USART1 = reinterpret_cast<USART *>(0x4001'1000u);
     /** @brief General Purpose Timer 2 on the APB1 Bus (TIM2 base address). */
     inline const auto TIMER2 = reinterpret_cast<TIMER *>(0x4000'0000u);
@@ -702,7 +749,8 @@ namespace STM32::MemoryMap {
 
     /** @brief General Purpose Timer 4 on the APB1 Bus (TIM4 base address). */
     inline const auto TIMER4 = reinterpret_cast<TIMER *>(0x4000'0800u);
-
+    /** @brief General Purpose Timer 5 on the APB1 Bus (TIM5 base address). */
+    inline const auto TIMER5 = reinterpret_cast<TIMER *>(0x4000'0C00u);
     /** @brief Reset and Clock Control module on the AHB Bus (RCC base address). */
     inline const auto RCC1 = reinterpret_cast<RCC *>(0x4002'3800u);
 
