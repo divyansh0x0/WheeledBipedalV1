@@ -63,7 +63,6 @@ namespace STM32F411::MemoryMap {
         ADC1 = 8,
         SDIO = 11,
         SPI1 = 12,
-
         SPI4 = 13
     };
 
@@ -416,7 +415,8 @@ namespace STM32F411::MemoryMap {
         volatile register_t ODR; ///< 0x14 Port output data register.
         volatile register_t BSRR; ///< 0x18 Port bit set/reset register.
         volatile register_t LCKR; ///< 0x1C Port configuration lock register.
-        volatile register_t AFR[2]; ///< 0x20 Alternate function low register (index 1) for pin 0 to 7 on same port and 8 to 15 are in high register (index 1)
+        volatile register_t AFR[2];
+        ///< 0x20 Alternate function low register (index 1) for pin 0 to 7 on same port and 8 to 15 are in high register (index 1)
         /**
          * @brief Defines the 4-bit configuration for the GPIO MODE and CNF register bitfields.
          * @details Mapped to the CNF[1:0] and MODE[1:0] bitfields in the GPIOx_CRL and GPIOx_CRH registers.
@@ -508,8 +508,6 @@ namespace STM32F411::MemoryMap {
             otyper |= (static_cast<uint32_t>(type) << shift1);
             this->OTYPER = otyper;
         }
-
-
     };
 
 
@@ -635,13 +633,39 @@ namespace STM32F411::MemoryMap {
             return CR & 0b1;
         }
 
+        void  enableCircularMode(bool enabled) {
+            if (enabled) {
+                CR |= 0b1 << 8;
+            }
+            else {
+                CR &= ~(0b1 << 10);
+
+            }
+        }
         void setEnabled(bool state) {
             if (state) CR |= 1u;
             else CR &= ~1u;
         }
 
+        void enableMemoryIncrementMode(bool enabled) {
+            if (enabled) {
+                CR |= 0b1 << 10;
+            }
+            else {
+                CR &= ~(0b1 << 10);
+            }
+        }
+        void enablePeripheralIncrementMode(bool enabled) {
+            if (enabled) {
+                CR |= 0b1 << 9;
+            }
+            else {
+                CR &= ~(0b1 << 9);
+            }
+        }
 
-        void setChannel(unsigned char channel) {
+
+        void setChannel(Channel channel) {
             constexpr int bit_start = 25;
             CR &= ~(0b111 << bit_start);
             CR |= (static_cast<register_t>(channel) << bit_start);
@@ -675,12 +699,6 @@ namespace STM32F411::MemoryMap {
             else CR &= ~(1u << bit_start);
         }
 
-        void enableMemoryIncrement(bool enabled) {
-            constexpr unsigned int bit_start = 10;
-            if (enabled) CR |= (1u << bit_start);
-            else CR &= ~(1u << bit_start);
-        }
-
         void setPeripheralAddress(const volatile void *peripheral) {
             PAR = reinterpret_cast<register_t>(peripheral);
         }
@@ -691,6 +709,25 @@ namespace STM32F411::MemoryMap {
 
         void setDataLength(uint32_t length) {
             NDTR = length;
+        }
+
+        enum class FIFOStorageWord {
+            OneWord,
+            TwoWord,
+            ThreeWord,
+            FourWord,
+        };
+
+        void enableFIFO(bool enabled, FIFOStorageWord level) {
+            if (enabled) {
+                FCR &= ~0xF;
+                FCR |= static_cast<uint32_t>(level);
+
+                // disable direct mode
+                FCR |= 1 << 2;
+            } else {
+                FCR &= ~(1 << 2);
+            }
         }
     };
 
@@ -795,6 +832,9 @@ namespace STM32F411::MemoryMap {
 
     /** @brief GPIO Port C on the APB2 Bus (GPIOC base address). */
     inline const auto GPIOC = reinterpret_cast<GPIORegister *>(GPIOAdressC);
+
+    inline const auto ADC = reinterpret_cast<ADCReg *>(0x4001'2000);
 }
+
 
 #endif // WHEEL2FIRMWARE_MEMORYMAP_H

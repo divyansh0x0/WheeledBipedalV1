@@ -1,6 +1,6 @@
 #ifndef WHEEL2FIRMWARE_GPIO_H
 #define WHEEL2FIRMWARE_GPIO_H
-#include "GPIO/Peripherals.h"
+#include "Peripherals.h"
 #include "drivers/MemoryMap.h"
 
 

@@ -3,7 +3,7 @@
 Controller for `stm32f411cue6` microcontroller board.
 
 Specs:
-1. 128KB sram - Starts at 0x2000 0000 
+1. 128KB sram - Starts at 0x2000 0000
 2. 512KB flash - Starts at 0x0800 0000
 
 ## Documentations
@@ -26,5 +26,5 @@ dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D BipedalV1.bin
 
 Using st-link:
 ```
-st-link 
+st-flash --mass-erase write cmake-build-debug/BipedalV1.bin 0x08000000
 ```
