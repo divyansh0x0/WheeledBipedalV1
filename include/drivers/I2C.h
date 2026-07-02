@@ -7,7 +7,7 @@
 #include "MemoryMap.h"
 #include "Clock.h"
 
-namespace STM32 {
+namespace STM32F411 {
     template<unsigned int addr>
     class I2C {
         enum I2CFlags : uint16_t {
@@ -180,7 +180,7 @@ namespace STM32 {
                     if (!waitEvent(I2CFlags::RXNE)) return false;
                     *data = REG->DR;
                 } else if (length == 2) {
-                    // STM32 Quirk: For exactly 2 bytes, we must set POS and clear ACK
+                    // STM32F411 Quirk: For exactly 2 bytes, we must set POS and clear ACK
                     // BEFORE clearing the ADDR flag (EV6).
                     REG->CR1 |= (1 << 11); // Set POS bit
                     REG->CR1 &= ~(1 << 10); // Clear ACK bit

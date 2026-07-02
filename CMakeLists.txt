@@ -52,7 +52,8 @@ include_directories(include)
 
 add_executable(BipedalV1
         startup.cpp
-        src/main.cpp)
+        src/main.cpp
+)
 
 
 # -----------------------------------------------------------------------------

@@ -6,7 +6,7 @@
 #define BIPEDALV1_RTC_H
 #include "MemoryMap.h"
 
-namespace STM32 {
+namespace STM32F411 {
     class Clock {
         static constexpr uint16_t AHB_DIV[16] = {1, 1, 1, 1, 1, 1, 1, 1, 2, 4, 8, 16, 64, 128, 256, 512};
         static constexpr uint8_t APB_DIV[8] = {1, 1, 1, 1, 2, 4, 8, 16};
@@ -83,9 +83,8 @@ namespace STM32 {
             return apb1_clk;
         }
         static void enable() {
-            MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER5);
             // 1. Enable TIM5 clock in RCC (Bit 3 in APB1ENR)
-            MemoryMap::RCC1->APB1ENR |= (1 << 3);
+            MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER5);
 
             // 2. Set the prescaler to get exactly 1 MHz (1 tick = 1 microsecond)
             MemoryMap::TIMER5->PSC = (calculateCoreClock() / 1'000'000) - 1;
@@ -100,11 +99,11 @@ namespace STM32 {
             MemoryMap::TIMER5->CR1 |= (1 << 0); // Set CEN (Counter Enable) bit
         }
 
-        static inline uint32_t micros() {
+        static uint32_t micros() {
             return MemoryMap::TIMER5->CNT;
         }
 
-        static inline uint32_t millis() {
+        static uint32_t millis() {
             return MemoryMap::TIMER5->CNT / 1000;
         }
     };

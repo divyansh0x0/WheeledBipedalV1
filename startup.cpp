@@ -37,28 +37,28 @@ extern "C" init_func_t _einit;
  */
 static void initSystemClock() {
     // 1. Enable the External Crystal (HSE) and wait for hardware lock.
-    STM32::MemoryMap::RCC1->enableHSE();
+    STM32F411::MemoryMap::RCC1->enableHSE();
 
     // 2. Configure Flash Latency FIRST.
     // For STM32F411 at 96MHz (3.3V VDD), 3 Wait States are required.
-    STM32::MemoryMap::FlashInterface->setWaitState(STM32::MemoryMap::Flash::WaitStates::THREE);
+    STM32F411::MemoryMap::FlashInterface->setWaitState(STM32F411::MemoryMap::Flash::WaitStates::THREE);
 
     // 3. Configure and enable the PLL.
     // Target: 96 MHz SYSCLK, 48 MHz USB.
     // F4 PLL Formula: f(VCO) = f(HSE) * (N / M). f(SYSCLK) = f(VCO) / P. f(USB) = f(VCO) / Q.
     // M=25 (1MHz VCO in), N=192 (192MHz VCO out), P=2 (96MHz Core), Q=4 (48MHz USB)
-    STM32::MemoryMap::RCC1->enablePLL(STM32::MemoryMap::RCC::PLLSource::HSE, 25, 192, 2, 4);
+    STM32F411::MemoryMap::RCC1->enablePLL(STM32F411::MemoryMap::RCC::PLLSource::HSE, 25, 192, 2, 4);
 
     // 4. Set bus prescalers BEFORE switching the system clock.
     // AHB  = 96 MHz (Prescaler = None)   -> Max 100 MHz
     // APB1 = 48 MHz (Prescaler = Half)   -> Max 50 MHz
     // APB2 = 96 MHz (Prescaler = None)   -> Max 100 MHz
-    STM32::MemoryMap::RCC1->setAPB1PreScaler(STM32::MemoryMap::RCC::Prescaler::Half);
-    STM32::MemoryMap::RCC1->setAPB2PreScaler(STM32::MemoryMap::RCC::Prescaler::None);
-    STM32::MemoryMap::RCC1->setAHBPrescaler(STM32::MemoryMap::RCC::AHBPrescaler::None);
+    STM32F411::MemoryMap::RCC1->setAPB1PreScaler(STM32F411::MemoryMap::RCC::Prescaler::Half);
+    STM32F411::MemoryMap::RCC1->setAPB2PreScaler(STM32F411::MemoryMap::RCC::Prescaler::None);
+    STM32F411::MemoryMap::RCC1->setAHBPrescaler(STM32F411::MemoryMap::RCC::AHBPrescaler::None);
 
     // 5. Route the PLL to the Core.
-    STM32::MemoryMap::RCC1->setSystemClockSrc(STM32::MemoryMap::RCC::SystemClockSource::PLL);
+    STM32F411::MemoryMap::RCC1->setSystemClockSrc(STM32F411::MemoryMap::RCC::SystemClockSource::PLL);
 }
 
 /**

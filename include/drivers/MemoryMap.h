@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-namespace STM32::MemoryMap {
+namespace STM32F411::MemoryMap {
     inline constexpr unsigned int CPU_FREQUENCY = 72'000'000;
     using register_t = unsigned int;
 
@@ -394,7 +394,7 @@ namespace STM32::MemoryMap {
         void enablePeripheral(AHB1Peripheral peripheral) {
             this->AHB1ENR |= (1 << static_cast<unsigned int>(peripheral));
         }
-        
+
         void setAHBPrescaler(AHBPrescaler scale) {
             const unsigned int hpre_bit = 4;
             this->CFGR &= ~(0b1111 << hpre_bit); //reset
@@ -407,17 +407,16 @@ namespace STM32::MemoryMap {
      * @brief General Purpose Input/Output (GPIO) peripheral memory map.
      * @details Mapped to physical memory offsets specified in Section 9.2 of the RM0008 Reference Manual.
      */
-    struct GPIO {
-        volatile register_t MODER;   ///< 0x00 Port mode register.
-        volatile register_t OTYPER;  ///< 0x04 Port output type register.
+    struct GPIORegister {
+        volatile register_t MODER; ///< 0x00 Port mode register.
+        volatile register_t OTYPER; ///< 0x04 Port output type register.
         volatile register_t OSPEEDR; ///< 0x08 Port output speed register.
-        volatile register_t PUPDR;   ///< 0x0C Port pull-up/pull-down register.
-        volatile register_t IDR;     ///< 0x10 Port input data register.
-        volatile register_t ODR;     ///< 0x14 Port output data register.
-        volatile register_t BSRR;    ///< 0x18 Port bit set/reset register.
-        volatile register_t LCKR;    ///< 0x1C Port configuration lock register.
-        volatile register_t AFRL;    ///< 0x20 Alternate function low register for pin 0 to 7 on same port.
-        volatile register_t AFRH;    ///< 0x24 Alternate function high register for pin 8 to 15 on same port.
+        volatile register_t PUPDR; ///< 0x0C Port pull-up/pull-down register.
+        volatile register_t IDR; ///< 0x10 Port input data register.
+        volatile register_t ODR; ///< 0x14 Port output data register.
+        volatile register_t BSRR; ///< 0x18 Port bit set/reset register.
+        volatile register_t LCKR; ///< 0x1C Port configuration lock register.
+        volatile register_t AFR[2]; ///< 0x20 Alternate function low register (index 1) for pin 0 to 7 on same port and 8 to 15 are in high register (index 1)
         /**
          * @brief Defines the 4-bit configuration for the GPIO MODE and CNF register bitfields.
          * @details Mapped to the CNF[1:0] and MODE[1:0] bitfields in the GPIOx_CRL and GPIOx_CRH registers.
@@ -438,7 +437,7 @@ namespace STM32::MemoryMap {
             Low_2MHz = 0b00,
             Medium_25MHz = 0b01,
             Fast_50MHz = 0b10,
-            High_100MHz = 0b11   // Very High Speed
+            High_100MHz = 0b11 // Very High Speed
         };
 
         enum class Pull : uint32_t {
@@ -446,10 +445,11 @@ namespace STM32::MemoryMap {
             Up = 0b01,
             Down = 0b10
         };
+
         /**
         * @brief Drives the physical pin to VDD (Logic 1).
-                 * @details Uses the lower 16 bits (BSy) of the BSRR for atomic, single-cycle access.
-                 */
+        * @details Uses the lower 16 bits (BSy) of the BSRR for atomic, single-cycle access.
+        */
         void setPinHigh(unsigned int pin_number) {
             this->BSRR = (1u << pin_number);
         }
@@ -464,19 +464,18 @@ namespace STM32::MemoryMap {
         }
 
         /**
-                 * @brief Configures the entire physical state of a GPIO pin.
-                 * @param pin The target pin number (0 to 15).
-                 * @param mode Input, Output, Alternate Function, or Analog.
-                 * @param pull Physical resistor state (defaults to None).
-                 * @param speed Slew rate of the output transistors (defaults to Low).
-                 * @param type Push-pull or open-drain (defaults to PushPull).
-                 */
+        * @brief Configures the entire physical state of a GPIO pin.
+        * @param pin The target pin number (0 to 15).
+        * @param mode Input, Output, Alternate Function, or Analog.
+        * @param pull Physical resistor state (defaults to None).
+        * @param speed Slew rate of the output transistors (defaults to Low).
+        * @param type Push-pull or open-drain (defaults to PushPull).
+        */
         void configurePin(unsigned int pin,
                           Mode mode,
                           Pull pull = Pull::None,
                           OutputSpeed speed = OutputSpeed::Low_2MHz,
-                          OutputType type = OutputType::PushPull)
-        {
+                          OutputType type = OutputType::PushPull) {
             // 2-bit fields require shifting by (pin * 2)
             const unsigned int shift2 = pin * 2;
             const uint32_t mask2 = 0b11;
@@ -509,6 +508,8 @@ namespace STM32::MemoryMap {
             otyper |= (static_cast<uint32_t>(type) << shift1);
             this->OTYPER = otyper;
         }
+
+
     };
 
 
@@ -592,13 +593,13 @@ namespace STM32::MemoryMap {
         volatile register_t TRISE;
     };
 
-struct DMAStream {
-        volatile register_t CR;   //!< Configuration register
+    struct DMAStream {
+        volatile register_t CR; //!< Configuration register
         volatile register_t NDTR; //!< Number of data register
-        volatile register_t PAR;  //!< Peripheral address register
+        volatile register_t PAR; //!< Peripheral address register
         volatile register_t M0AR; //!< Memory 0 address register
         volatile register_t M1AR; //!< Memory 1 address register
-        volatile register_t FCR;  //!< FIFO control register
+        volatile register_t FCR; //!< FIFO control register
 
         enum class Channel : register_t {
             CH0 = 0,
@@ -609,8 +610,8 @@ struct DMAStream {
             CH5 = 5,
             CH6 = 6,
             CH7 = 7,
-
         };
+
         enum class DMAPriorityLevel : register_t {
             LOW = 0b00,
             MEDIUM = 0b01,
@@ -627,7 +628,7 @@ struct DMAStream {
         enum class TransferDirection : register_t {
             PERIPHERAL_TO_MEMORY = 0b00,
             MEMORY_TO_PERIPHERAL = 0b01,
-            MEMORY_TO_MEMORY     = 0b10
+            MEMORY_TO_MEMORY = 0b10
         };
 
         bool isEnabled() const {
@@ -691,7 +692,7 @@ struct DMAStream {
         void setDataLength(uint32_t length) {
             NDTR = length;
         }
-};
+    };
 
     struct DMAMemoryMap {
         volatile register_t LISR;
@@ -724,13 +725,37 @@ struct DMAStream {
         volatile register_t BKP19R;
     };
 
+    struct ADCReg {
+        volatile register_t SR;
+        volatile register_t CR1;
+        volatile register_t CR2;
+        volatile register_t SMPR1;
+        volatile register_t SMPR2;
+        volatile register_t JOFR1;
+        volatile register_t JOFR2;
+        volatile register_t JOFR3;
+        volatile register_t JOFR4;
+        volatile register_t HTR;
+        volatile register_t LTR;
+        volatile register_t SQR1;
+        volatile register_t SQR2;
+        volatile register_t SQR3;
+        volatile register_t JSQR;
+        volatile register_t JDR1;
+        volatile register_t JDR2;
+        volatile register_t JDR3;
+        volatile register_t JDR4;
+        volatile register_t DR;
+        volatile register_t CCR;
+    };
+
     struct SysTickReg {
         volatile register_t CTRL;
         volatile register_t LOAD;
         volatile register_t VAL;
         volatile register_t CALIB;
-
     };
+
     // =========================================================================
     // Peripheral Base Addresses
     // =========================================================================
@@ -763,14 +788,13 @@ struct DMAStream {
     /** @brief GPIO Port C base address. */
     inline const unsigned int GPIOAdressC = (0x4002'0800);
     /** @brief GPIO Port A on the APB2 Bus (GPIOA base address). */
-    inline const auto GPIOA = reinterpret_cast<GPIO *>(GPIOAdressA);
+    inline const auto GPIOA = reinterpret_cast<GPIORegister *>(GPIOAdressA);
 
     /** @brief GPIO Port B on the APB2 Bus (GPIOB base address). */
-    inline const auto GPIOB = reinterpret_cast<GPIO *>(GPIOAdressB);
+    inline const auto GPIOB = reinterpret_cast<GPIORegister *>(GPIOAdressB);
 
     /** @brief GPIO Port C on the APB2 Bus (GPIOC base address). */
-    inline const auto GPIOC = reinterpret_cast<GPIO *>(GPIOAdressC);
-
+    inline const auto GPIOC = reinterpret_cast<GPIORegister *>(GPIOAdressC);
 }
 
 #endif // WHEEL2FIRMWARE_MEMORYMAP_H

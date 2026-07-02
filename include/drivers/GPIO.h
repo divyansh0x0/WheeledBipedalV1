@@ -1,22 +1,26 @@
 #ifndef WHEEL2FIRMWARE_GPIO_H
 #define WHEEL2FIRMWARE_GPIO_H
-#include "MemoryMap.h"
+#include "GPIO/Peripherals.h"
+#include "drivers/MemoryMap.h"
 
 
-namespace STM32 {
+namespace STM32F411 {
+    namespace AF {
+
+    }
     template<unsigned int addr, unsigned int index>
     class GPIO {
     public:
+        // Undefined - will be set manually later
+        enum class AlternateFunction;
+
         enum Status {
             HIGH, LOW,
         };
 
-        static void enable() {
-            const auto port = reinterpret_cast<MemoryMap::GPIO *>(addr);
-            port->configurePin(index, MemoryMap::GPIO::Mode::Output);
-        }
+
         static void toggle() {
-            const auto port = reinterpret_cast<MemoryMap::GPIO *>(addr);
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
             if (port->ODR & (1 << index)) // check if pin was suppose to be high
                 port->setPinLow(index);
             else
@@ -24,17 +28,37 @@ namespace STM32 {
         }
 
         static void set(Status status) {
-            const auto port = reinterpret_cast<MemoryMap::GPIO *>(addr);
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
             if (status == HIGH) {
                 port->setPinHigh(index);
             } else {
                 port->setPinLow(index);
             }
         }
-
+        static void enableAnalogMode() {
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
+            port->configurePin(index, MemoryMap::GPIORegister::Mode::Analog);
+        }
         static Status getStatus() {
-            const auto port = reinterpret_cast<MemoryMap::GPIO *>(addr);
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
             return port->ODR & (1 << index) ? HIGH : LOW;
+        }
+        static void enableOutputMode() {
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
+            port->configurePin(index, MemoryMap::GPIORegister::Mode::Output);
+        }
+        template<typename Peripheral>
+        static void alternateFunction() {
+            static_assert(is_valid_mapping<Peripheral, GPIO>::value,
+                          "HARDWARE ERROR: This peripheral cannot be routed to this specific GPIO pin!");
+            constexpr uint8_t af = PeripheralTraits<Peripheral, GPIO>::af;
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
+            constexpr uint8_t reg = index/8;
+            constexpr uint8_t bitPos = (index % 8) * 4; // multiply by 4 because
+            port->AFR[reg] &= ~(0b1111 << bitPos);
+            port->AFR[reg] |= static_cast<uint8_t>(af) << bitPos;
+
+            port->configurePin(index, MemoryMap::GPIORegister::Mode::AlternateFunction);
         }
     };
 
@@ -77,6 +101,15 @@ namespace STM32 {
         using C14 = GPIO<MemoryMap::GPIOAdressC, 14>;
         using C15 = GPIO<MemoryMap::GPIOAdressC, 15>;
     }
+
+
+
+    template<> struct PeripheralTraits<Peripherals::SCL1, Pins::B8> { static constexpr uint8_t af = 4; };
+    template<> struct PeripheralTraits<Peripherals::SCL1, Pins::B6> { static constexpr uint8_t af = 4; };
+
+    template<> struct PeripheralTraits<Peripherals::SDA1, Pins::B7> { static constexpr uint8_t af = 4; };
+    template<> struct PeripheralTraits<Peripherals::SDA1,  Pins::B9> { static constexpr uint8_t af = 4; };
+
 
 
 
