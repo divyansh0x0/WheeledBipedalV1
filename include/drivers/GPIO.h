@@ -48,7 +48,7 @@ namespace STM32F411 {
             port->configurePin(index, MemoryMap::GPIORegister::Mode::Output);
         }
         template<typename Peripheral>
-        static void alternateFunction() {
+        static void enableAlternateFunction() {
             static_assert(is_valid_mapping<Peripheral, GPIO>::value,
                           "HARDWARE ERROR: This peripheral cannot be routed to this specific GPIO pin!");
             constexpr uint8_t af = PeripheralTraits<Peripheral, GPIO>::af;
@@ -110,6 +110,8 @@ namespace STM32F411 {
     template<> struct PeripheralTraits<Peripherals::SDA1, Pins::B7> { static constexpr uint8_t af = 4; };
     template<> struct PeripheralTraits<Peripherals::SDA1,  Pins::B9> { static constexpr uint8_t af = 4; };
 
+    template<> struct PeripheralTraits<Peripherals::TIMER4,  Pins::B7> { static constexpr uint8_t af = 2; };
+    template<> struct PeripheralTraits<Peripherals::TIMER4,  Pins::B6> { static constexpr uint8_t af = 2; };
 
 
 

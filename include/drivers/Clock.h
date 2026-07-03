@@ -15,11 +15,11 @@ namespace STM32F411 {
         static constexpr unsigned int EXTERNAL_CRYSTAL_HZ = 25'000'000;
         static constexpr unsigned int INTERNAL_CRYSTAL_HZ = 16'000'000;
 
-        static uint32_t calculateCoreClock() {
+        static uint32_t getSystemClock() {
             uint32_t clock_source = (MemoryMap::RCC1->CFGR & 0x0C) >> 2; // Read System clock switch status (SWS)
 
             if (clock_source == static_cast<unsigned int>(MemoryMap::RCC::SystemClockSource::HSI)) {
-                return INTERNAL_CRYSTAL_HZ; // HSI (Internal RC oscillator),  8MHz
+                return INTERNAL_CRYSTAL_HZ; // HSI (Internal RC oscillator),  16MHz
             }
             if (clock_source == static_cast<unsigned int>(MemoryMap::RCC::SystemClockSource::HSE)) {
                 return EXTERNAL_CRYSTAL_HZ; // HSE (External oscillator)
@@ -54,7 +54,7 @@ namespace STM32F411 {
         }
 
         static uint32_t getAHBClock() {
-            uint32_t sysclk = calculateCoreClock();
+            uint32_t sysclk = getSystemClock();
             // HPRE (AHB Prescaler) is at bits 4-7
             uint32_t hpre = (MemoryMap::RCC1->CFGR >> 4) & 0x0F;
             return sysclk / AHB_DIV[hpre];
@@ -87,8 +87,7 @@ namespace STM32F411 {
             MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER5);
 
             // 2. Set the prescaler to get exactly 1 MHz (1 tick = 1 microsecond)
-            MemoryMap::TIMER5->PSC = (calculateCoreClock() / 1'000'000) - 1;
-
+            MemoryMap::TIMER5->PSC = (getAPB1TimerClock() / 1'000'000U) - 1;
             // 3. Set Auto-Reload to max 32-bit value (0xFFFFFFFF)
             MemoryMap::TIMER5->ARR = 0xFFFFFFFF;
 

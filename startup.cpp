@@ -1,3 +1,4 @@
+#include "drivers/Clock.h"
 #include "drivers/MemoryMap.h"
 
 /**
@@ -59,6 +60,7 @@ static void initSystemClock() {
 
     // 5. Route the PLL to the Core.
     STM32F411::MemoryMap::RCC1->setSystemClockSrc(STM32F411::MemoryMap::RCC::SystemClockSource::PLL);
+    STM32F411::Clock::enable();
 }
 
 /**

@@ -136,8 +136,6 @@ namespace STM32F411::MemoryMap {
         volatile register_t CCR4; ///< 0x40 TIMx Capture/Compare Register 4 (TIMx_CCR4).
         /**
          * @brief Configures the prescaler and auto-reload values of the timer.
-         * @param prescaler Clock division factor (value written to PSC is prescaler - 1).
-         * @param auto_reload Period count limit value (value written to ARR is auto_reload - 1).
          */
         // Target frequency in Hz, and your desired max value for 100% duty cycle
         void setFrequency(uint32_t system_clock, uint32_t target_hz, uint32_t resolution = 1000) {

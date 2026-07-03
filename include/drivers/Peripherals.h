@@ -24,6 +24,12 @@ namespace STM32F411 {
     };
 
     namespace Peripherals {
+        struct TIMER4 {
+            static constexpr auto type = MemoryMap::GPIORegister::OutputType::PushPull;
+            static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+        };
+
         struct SCL1 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;

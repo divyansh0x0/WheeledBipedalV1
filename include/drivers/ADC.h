@@ -68,6 +68,7 @@ namespace STM32F411::ADC {
 
         void enable(Resolution res, SampleTime sample_time = SampleTime::Cycles480) {
             MemoryMap::RCC1->enablePeripheral(MemoryMap::APB2Peripheral::ADC1);
+            (SensorPins::enableAnalogMode(), ...);
             auto adc = MemoryMap::ADC;
 
             // Set resolution
@@ -77,7 +78,6 @@ namespace STM32F411::ADC {
             adc->CR1 |= 0b1 << 8;
             //  End of conversion selection
             adc->CR2 |= (0b1 << 10);
-            (SensorPins::enableAnalogMode(), ...);
 
             constexpr uint8_t length = sizeof...(SensorPins);
             const uint8_t channels[length] = {ADCTraits<SensorPins>::channel...};
