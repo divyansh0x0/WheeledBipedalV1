@@ -15,7 +15,7 @@ set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
 project(BipedalV1 CXX C ASM)
 
 # 3. SETTING C++ STANDARD
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # -----------------------------------------------------------------------------
@@ -53,7 +53,8 @@ include_directories(include)
 add_executable(BipedalV1
         startup.cpp
         src/main.cpp
-        "include/drivers/PWM .h")
+        "include/drivers/PWM .h"
+        include/drivers/MPU6050.h)
 
 set_target_properties(BipedalV1 PROPERTIES SUFFIX ".elf")
 

@@ -26,7 +26,7 @@ namespace STM32F411::PWM {
     template<Timer timer, TimerChannel channel>
     class PWM {
     public:
-        static void setFrequency(uint32_t frequency_hz=1000, unsigned int resolution = 10000) {
+        void setFrequency(uint32_t frequency_hz=1000, unsigned int resolution = 10000) {
 
             const uint32_t system_clock_speed = Clock::getAPB1TimerClock();
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
@@ -50,7 +50,7 @@ namespace STM32F411::PWM {
         }
 
 
-        static void setDutyCycle(uint32_t duty_cycle) {
+        void setDutyCycle(uint32_t duty_cycle) {
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
             const uint32_t ccr_value = ((reg->ARR + 1) * duty_cycle) / 100;
             if constexpr (channel == TimerChannel::Channel1) {
@@ -64,7 +64,7 @@ namespace STM32F411::PWM {
             }
         }
 
-        static void enable() {
+        void enable() {
             if constexpr (timer == Timer::TIMER2) {
                 MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER2);
             } else if constexpr (timer == Timer::TIMER3) {
@@ -106,7 +106,7 @@ namespace STM32F411::PWM {
             reg->CR1 |= (0b1 << 0); //Enable counter mode
         }
 
-        static void disable() {
+         void disable() {
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
             reg->CCER &= ~(0b1 << (static_cast<uint32_t>(channel) * 4));
         }

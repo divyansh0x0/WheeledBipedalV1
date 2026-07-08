@@ -14,7 +14,6 @@ namespace STM32 {
             if(count < 8)
                 count = 8;
 
-            dma.STREAMS[stream_index]
         }
     };
 }

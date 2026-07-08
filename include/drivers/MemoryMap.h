@@ -89,6 +89,14 @@ namespace STM32F411::MemoryMap {
 
 
     struct Flash {
+        Flash(const Flash &) = delete;
+
+        Flash &operator=(const Flash &) = delete;
+
+        Flash(Flash &&) = delete;
+
+        Flash &operator=(Flash &&) = delete;
+
         volatile register_t ACR;
         volatile register_t KEYR;
         volatile register_t OPTKEYR;
@@ -117,6 +125,14 @@ namespace STM32F411::MemoryMap {
      * described in Section 3.1.
      */
     struct TIMER {
+        TIMER(const TIMER &) = delete;
+
+        TIMER &operator=(const TIMER &) = delete;
+
+        TIMER(TIMER &&) = delete;
+
+        TIMER &operator=(TIMER &&) = delete;
+
         volatile register_t CR1; ///< 0x00 TIMx Control Register 1 (TIMx_CR1).
         volatile register_t CR2; ///< 0x04 TIMx Control Register 2 (TIMx_CR2).
         volatile register_t SMCR; ///< 0x08 TIMx Slave Mode Control Register (TIMx_SMCR).
@@ -220,6 +236,14 @@ namespace STM32F411::MemoryMap {
      * Manages peripheral reset state and clock enable/disable settings.
      */
     struct RCC {
+        RCC(const RCC &) = delete;
+
+        RCC &operator=(const RCC &) = delete;
+
+        RCC(RCC &&) = delete;
+
+        RCC &operator=(RCC &&) = delete;
+
         volatile register_t CR; ///< 0x00 Clock Control Register (RCC_CR).
         volatile register_t PLLCFGR; ///< 0x04 Clock Configuration Register (RCC_CFGR).
         volatile register_t CFGR; ///< 0x04 Clock Configuration Register (RCC_CFGR).
@@ -405,6 +429,14 @@ namespace STM32F411::MemoryMap {
      * @details Mapped to physical memory offsets specified in Section 9.2 of the RM0008 Reference Manual.
      */
     struct GPIORegister {
+        GPIORegister(const GPIORegister &) = delete;
+
+        GPIORegister &operator=(const GPIORegister &) = delete;
+
+        GPIORegister(GPIORegister &&) = delete;
+
+        GPIORegister &operator=(GPIORegister &&) = delete;
+
         volatile register_t MODER; ///< 0x00 Port mode register.
         volatile register_t OTYPER; ///< 0x04 Port output type register.
         volatile register_t OSPEEDR; ///< 0x08 Port output speed register.
@@ -514,6 +546,14 @@ namespace STM32F411::MemoryMap {
      * @details Mapped to physical memory offsets specified in Section 27.6 of the RM0008 Reference Manual.
      */
     struct USART {
+        USART(const USART &) = delete;
+
+        USART &operator=(const USART &) = delete;
+
+        USART(USART &&) = delete;
+
+        USART &operator=(USART &&) = delete;
+
         volatile register_t SR; ///< 0x00 USART Status Register (USART_SR).
         volatile register_t DR; ///< 0x04 USART Data Register (USART_DR).
         volatile register_t BRR; ///< 0x08 USART Baud Rate Register (USART_BRR).
@@ -578,6 +618,14 @@ namespace STM32F411::MemoryMap {
     };
 
     struct I2C {
+        I2C(const I2C &) = delete;
+
+        I2C &operator=(const I2C &) = delete;
+
+        I2C(I2C &&) = delete;
+
+        I2C &operator=(I2C &&) = delete;
+
         volatile register_t CR1;
         volatile register_t CR2;
         volatile register_t OAR1;
@@ -590,6 +638,14 @@ namespace STM32F411::MemoryMap {
     };
 
     struct DMAStream {
+        DMAStream(const DMAStream &) = delete;
+
+        DMAStream &operator=(const DMAStream &) = delete;
+
+        DMAStream(DMAStream &&) = delete;
+
+        DMAStream &operator=(DMAStream &&) = delete;
+
         volatile register_t CR; //!< Configuration register
         volatile register_t NDTR; //!< Number of data register
         volatile register_t PAR; //!< Peripheral address register
@@ -631,15 +687,14 @@ namespace STM32F411::MemoryMap {
             return CR & 0b1;
         }
 
-        void  enableCircularMode(bool enabled) {
+        void enableCircularMode(bool enabled) {
             if (enabled) {
                 CR |= 0b1 << 8;
-            }
-            else {
+            } else {
                 CR &= ~(0b1 << 10);
-
             }
         }
+
         void setEnabled(bool state) {
             if (state) CR |= 1u;
             else CR &= ~1u;
@@ -648,16 +703,15 @@ namespace STM32F411::MemoryMap {
         void enableMemoryIncrementMode(bool enabled) {
             if (enabled) {
                 CR |= 0b1 << 10;
-            }
-            else {
+            } else {
                 CR &= ~(0b1 << 10);
             }
         }
+
         void enablePeripheralIncrementMode(bool enabled) {
             if (enabled) {
                 CR |= 0b1 << 9;
-            }
-            else {
+            } else {
                 CR &= ~(0b1 << 9);
             }
         }
@@ -761,6 +815,14 @@ namespace STM32F411::MemoryMap {
     };
 
     struct ADCReg {
+        ADCReg(const ADCReg &) = delete;
+
+        ADCReg &operator=(const ADCReg &) = delete;
+
+        ADCReg(ADCReg &&) = delete;
+
+        ADCReg &operator=(ADCReg &&) = delete;
+
         volatile register_t SR;
         volatile register_t CR1;
         volatile register_t CR2;

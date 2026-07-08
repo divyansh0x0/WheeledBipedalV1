@@ -27,6 +27,7 @@ namespace STM32F411 {
         };
 
         static bool waitEvent(I2CFlags flag) {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             uint32_t timeout_ms = 1;
 
             const uint32_t start = Clock::millis();
@@ -45,13 +46,14 @@ namespace STM32F411 {
         }
 
         static inline void clearAddress() {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             (void) REG->SR1;
             (void) REG->SR2; // Clear ADDR
         }
 
     public:
-        static constexpr volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
         static void enable(bool enableDMA = false) {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             REG->CR1 &= ~1u; // set EN to false
             if (enableDMA) {
                 REG->CR2 |= 1 << 11;
@@ -74,7 +76,7 @@ namespace STM32F411 {
             const uint32_t ccr_val = apb1_freq_hz / (25 * 400'000);
             REG->CCR = (REG->CCR & ~0xCFFFu) | (1 << 15) | (1 << 14) | (ccr_val << 0);
 
-            REG->TRISE = (REG->TRISE & ~0x3Fu) | (300 * bus_freq_mhz) / 1000 + 1; // set Trise = MAX_RISE_TIME * BUS_FREQ + 1
+            REG->TRISE = (REG->TRISE & ~0x3Fu) | ((300 * bus_freq_mhz) / 1000 + 1); // set Trise = MAX_RISE_TIME * BUS_FREQ + 1
 
             REG->CR1 |= 1u; // set EN to true
         }
@@ -82,6 +84,7 @@ namespace STM32F411 {
         static bool writeRegister(uint8_t i2c_addr, uint8_t reg_addr, const uint8_t *data, const uint32_t length,
                                   MemoryMap::DMAStream *dma_stream = nullptr) {
             if (length == 0) return true;
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             if (dma_stream) {
                 dma_stream->setEnabled(false);
                 while (dma_stream->isEnabled()) {
@@ -89,7 +92,7 @@ namespace STM32F411 {
                 dma_stream->setPeripheralAddress(&REG->DR);
                 dma_stream->setMemoryAddress(data);
                 dma_stream->setDataLength(length);
-                dma_stream->enableMemoryIncrement(true);
+                dma_stream->enableMemoryIncrementMode(true);
                 dma_stream->enableTransferCompleteInterrupt(true);
             }
 
@@ -125,12 +128,14 @@ namespace STM32F411 {
 
         static void finishDMAWrite() {
             // Must wait for the final bits to physically exit the shift register
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             waitEvent(I2CFlags::BYTE_TRANSFER_FINISHED);
             REG->CR1 |= (1 << 9); // Generate STOP condition
             REG->CR2 &= ~(1 << 11); // Clear DMAEN bit
         }
 
         static void finishDMARead() {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             REG->CR1 |= (1 << 9); // Generate STOP condition
             REG->CR2 &= ~(1 << 11 | 1 << 12); // Clear DMAEN and LAST bits
             REG->CR1 |= (1 << 10); // Re-enable ACK for the next transaction
@@ -139,6 +144,7 @@ namespace STM32F411 {
         static bool readRegister(uint8_t i2c_addr, uint8_t reg_addr, uint8_t *data, const uint32_t length,
                                  MemoryMap::DMAStream *dma_stream = nullptr) {
             if (length == 0) return true;
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             if (dma_stream) {
                 dma_stream->setEnabled(false);
                 while (dma_stream->isEnabled()) {
@@ -146,7 +152,7 @@ namespace STM32F411 {
                 dma_stream->setPeripheralAddress(&REG->DR);
                 dma_stream->setMemoryAddress(data);
                 dma_stream->setDataLength(length);
-                dma_stream->enableMemoryIncrement(true);
+                dma_stream->enableMemoryIncrementMode(true);
                 dma_stream->enableTransferCompleteInterrupt(true);
             }
             //Start
