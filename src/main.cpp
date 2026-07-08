@@ -1,5 +1,6 @@
 #include "../include/drivers/GPIO.h"
 #include "drivers/ADC.h"
+#include "drivers/Interrupt.h"
 #include "drivers/MemoryMap.h"
 #include "drivers/MPU6050.h"
 #include "drivers/PWM .h"
@@ -22,14 +23,21 @@ volatile unsigned int PSC = 1000;
 
 volatile uint32_t t1;
 volatile uint32_t t2;
+auto mpu6050 = STM32F411::MPU6050::MPU6050<STM32F411::I2C1>();
+STM32F411::MemoryMap::DMAStream *dma_stream;
+void mpuDMACallback() {
+}
 
+void mpu6050InterruptCallback() {
+    mpu6050.beginRead(dma_stream);
+}
 [[noreturn]] int main() {
     using namespace STM32F411;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C2);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::GPIOC);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::GPIOB);
-    MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::DMA2);
+    MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::DMA1);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER5);
 
     Pins::C13::enableOutputMode();
@@ -39,18 +47,20 @@ volatile uint32_t t2;
     adc.enable(ADC::Resolution::VeryHigh, ADC::SampleTime::Cycles480);
     adc.enableDMARead();
 
-    Pins::B7::enableAlternateFunction<Peripherals::TIMER4>();
-    auto T4C2 = PWM::PWM<PWM::Timer::TIMER4, PWM::TimerChannel::Channel2>();
+    Pins::B6::enableAlternateFunction<Peripherals::TIMER4>();
+    auto T4C2 = PWM::PWM<PWM::Timer::TIMER4, PWM::TimerChannel::Channel1>();
     T4C2.enable();
     T4C2.setFrequency(3000);
     T4C2.setDutyCycle(50);
 
-    auto mpu6050 = MPU6050::MPU6050<I2C1>();
-    MemoryMap::DMAStream *dma_stream = MemoryMap::DMA1->STREAMS[0].isEnabled()
-                                       ? &MemoryMap::DMA1->STREAMS[5]
-                                       : &MemoryMap::DMA1->STREAMS[0];
-    mpu6050.configure(MPU6050::GyroScale::_500,MPU6050::AccelScale::g2);
+    auto stream_id = MemoryMap::DMA1->STREAMS[0].isEnabled()
+                         ? 5
+                         : 0;
+    dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+    InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::Stream>(stream_id), mpuDMACallback);
+    mpu6050.configure(MPU6050::GyroScale::_500, MPU6050::AccelScale::g2, true);
     mpu6050.beginRead(dma_stream);
+
     t1 = Clock::millis();
     t2 = Clock::millis();
     while (true) {

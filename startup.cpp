@@ -1,4 +1,5 @@
 #include "drivers/Clock.h"
+#include "drivers/Interrupt.h"
 #include "drivers/MemoryMap.h"
 
 /**
@@ -22,10 +23,10 @@ extern "C" void _estack(void);
 
 extern "C" unsigned int
         _sidata, ///< Start address of the initialization values for the .data section in Flash.
-        _sdata,  ///< Start address of the .data section in SRAM.
-        _edata,  ///< End address of the .data section in SRAM.
-        _sbss,   ///< Start address of the .bss section in SRAM.
-        _ebss;   ///< End address of the .bss section in SRAM.
+        _sdata, ///< Start address of the .data section in SRAM.
+        _edata, ///< End address of the .data section in SRAM.
+        _sbss, ///< Start address of the .bss section in SRAM.
+        _ebss; ///< End address of the .bss section in SRAM.
 
 extern int main(void);
 
@@ -69,12 +70,12 @@ static void initSystemClock() {
 extern "C" [[noreturn]] void Reset_Handler(void) {
     // Enable Cortex-M4F Hardware Floating Point Unit (FPU)
     // CPACR is located at address 0xE000ED88
-    volatile unsigned int* SCB_CPACR = (volatile unsigned int*)0xE000ED88;
+    volatile unsigned int *SCB_CPACR = (volatile unsigned int *) 0xE000ED88;
     *SCB_CPACR |= 0xF << 20; // Set CP10 and CP11 to Full Access
     initSystemClock();
 
-    unsigned int* src = &_sidata;
-    unsigned int* dst = &_sdata;
+    unsigned int *src = &_sidata;
+    unsigned int *dst = &_sdata;
     while (dst < &_edata) {
         *dst = *src;
         src++;
@@ -87,7 +88,7 @@ extern "C" [[noreturn]] void Reset_Handler(void) {
         src++;
     }
 
-    init_func_t* src_func = &_sinit;
+    init_func_t *src_func = &_sinit;
     while (src_func < &_einit) {
         (*src_func)();
         src_func++;
@@ -95,7 +96,65 @@ extern "C" [[noreturn]] void Reset_Handler(void) {
 
     main();
 
-    while (1) {}
+    while (1) {
+    }
+}
+
+static void dma1StreamInterrupt(uint8_t stream) {
+    auto dma = STM32F411::MemoryMap::DMA1;
+    uint8_t bit_offset = STM32F411::InterruptManager::TCIF_OFFSETS[stream % 4];
+
+    // Streams 0-3 use LISR/LIFCR. Streams 4-7 use HISR/HIFCR.
+    volatile STM32F411::MemoryMap::register_t &status_reg = (stream < 4) ? dma->LISR : dma->HISR;
+    volatile STM32F411::MemoryMap::register_t &clear_reg = (stream < 4) ? dma->LIFCR : dma->HIFCR;
+
+    // Check if the Transfer Complete Interrupt Flag is set
+    if (status_reg & (1 << bit_offset)) {
+        // Clear the flag to prevent an infinite interrupt loop
+        clear_reg = (1 << bit_offset);
+
+        // Execute the dynamically assigned callback
+        if (STM32F411::InterruptManager::callbacks[stream] != nullptr) {
+            STM32F411::InterruptManager::callbacks[stream]();
+        }
+    }
+}
+
+static void handleEXTI(uint8_t start_line, uint8_t end_line) {
+    for (uint8_t i = start_line; i <= end_line; i++) {
+        // Check if the Pending Register (PR) flag is set for this specific line
+        if (STM32F411::EXTIReg->PR & (1 << i)) {
+            // CLEAR the flag by writing a 1 to it (STM32 hardware quirk: rc_w1)
+            STM32F411::EXTIReg->PR = (1 << i);
+
+            // Execute the user's callback if it exists
+            if (STM32F411::InterruptManager::exti_callbacks[i] != nullptr) {
+                STM32F411::InterruptManager::exti_callbacks[i]();
+            }
+        }
+    }
+}
+
+extern "C" {
+// Dedicated IRQs
+void EXTI0_IRQHandler() { handleEXTI(0, 0); }
+void EXTI1_IRQHandler() { handleEXTI(1, 1); }
+void EXTI2_IRQHandler() { handleEXTI(2, 2); }
+void EXTI3_IRQHandler() { handleEXTI(3, 3); }
+void EXTI4_IRQHandler() { handleEXTI(4, 4); }
+
+// Grouped IRQs (The loop inside handleEXTI will figure out exactly which pin fired)
+void EXTI9_5_IRQHandler() { handleEXTI(5, 9); }
+void EXTI15_10_IRQHandler() { handleEXTI(10, 15); }
+
+void DMA1_Stream0_IRQHandler() { dma1StreamInterrupt(0); }
+void DMA1_Stream1_IRQHandler() { dma1StreamInterrupt(1); }
+void DMA1_Stream2_IRQHandler() { dma1StreamInterrupt(2); }
+void DMA1_Stream3_IRQHandler() { dma1StreamInterrupt(3); }
+void DMA1_Stream4_IRQHandler() { dma1StreamInterrupt(4); }
+void DMA1_Stream5_IRQHandler() { dma1StreamInterrupt(5); }
+void DMA1_Stream6_IRQHandler() { dma1StreamInterrupt(6); }
+void DMA1_Stream7_IRQHandler() { dma1StreamInterrupt(7); }
 }
 
 extern "C" void Default_Handler(void) {
@@ -110,111 +169,112 @@ extern "C" void HardFault_Handler(void) {
     }
 }
 
+
 // STM32F411 Vector Table
 __attribute__((section(".isr_vector"), used))
 isr_t isr_vector_table[ISRV_LENGTH] = {
-    _estack,             //   0: Initial Stack Pointer
-    Reset_Handler,       //   1: Reset Vector
-    Default_Handler,     //   2: NMI (Non-Maskable Interrupt)
-    HardFault_Handler,   //   3: Hard Fault
-    Default_Handler,     //   4: Memory Management Fault
-    Default_Handler,     //   5: Bus Fault
-    Default_Handler,     //   6: Usage Fault
-    nullptr,             //   7: Reserved
-    nullptr,             //   8: Reserved
-    nullptr,             //   9: Reserved
-    nullptr,             //  10: Reserved
-    Default_Handler,     //  11: SVCall
-    Default_Handler,     //  12: Debug Monitor
-    nullptr,             //  13: Reserved
-    Default_Handler,     //  14: PendSV
-    Default_Handler,     //  15: SysTick
+    _estack, //   0: Initial Stack Pointer
+    Reset_Handler, //   1: Reset Vector
+    Default_Handler, //   2: NMI (Non-Maskable Interrupt)
+    HardFault_Handler, //   3: Hard Fault
+    Default_Handler, //   4: Memory Management Fault
+    Default_Handler, //   5: Bus Fault
+    Default_Handler, //   6: Usage Fault
+    nullptr, //   7: Reserved
+    nullptr, //   8: Reserved
+    nullptr, //   9: Reserved
+    nullptr, //  10: Reserved
+    Default_Handler, //  11: SVCall
+    Default_Handler, //  12: Debug Monitor
+    nullptr, //  13: Reserved
+    Default_Handler, //  14: PendSV
+    Default_Handler, //  15: SysTick
 
     // External Interrupts
-    Default_Handler,     //  16: WWDG
-    Default_Handler,     //  17: PVD
-    Default_Handler,     //  18: TAMP_STAMP
-    Default_Handler,     //  19: RTC_WKUP
-    Default_Handler,     //  20: FLASH
-    Default_Handler,     //  21: RCC
-    Default_Handler,     //  22: EXTI0
-    Default_Handler,     //  23: EXTI1
-    Default_Handler,     //  24: EXTI2
-    Default_Handler,     //  25: EXTI3
-    Default_Handler,     //  26: EXTI4
-    Default_Handler,     //  27: DMA1_Stream0
-    Default_Handler,     //  28: DMA1_Stream1
-    Default_Handler,     //  29: DMA1_Stream2
-    Default_Handler,     //  30: DMA1_Stream3
-    Default_Handler,     //  31: DMA1_Stream4
-    Default_Handler,     //  32: DMA1_Stream5
-    Default_Handler,     //  33: DMA1_Stream6
-    Default_Handler,     //  34: ADC
-    nullptr,             //  35: Reserved
-    nullptr,             //  36: Reserved
-    nullptr,             //  37: Reserved
-    nullptr,             //  38: Reserved
-    Default_Handler,     //  39: EXTI9_5
-    Default_Handler,     //  40: TIM1_BRK_TIM9
-    Default_Handler,     //  41: TIM1_UP_TIM10
-    Default_Handler,     //  42: TIM1_TRG_COM_TIM11
-    Default_Handler,     //  43: TIM1_CC
-    Default_Handler,     //  44: TIM2
-    Default_Handler,     //  45: TIM3
-    Default_Handler,     //  46: TIM4
-    Default_Handler,     //  47: I2C1_EV
-    Default_Handler,     //  48: I2C1_ER
-    Default_Handler,     //  49: I2C2_EV
-    Default_Handler,     //  50: I2C2_ER
-    Default_Handler,     //  51: SPI1
-    Default_Handler,     //  52: SPI2
-    Default_Handler,     //  53: USART1
-    Default_Handler,     //  54: USART2
-    nullptr,             //  55: Reserved
-    Default_Handler,     //  56: EXTI15_10
-    Default_Handler,     //  57: RTC_Alarm
-    Default_Handler,     //  58: OTG_FS_WKUP
-    nullptr,             //  59: Reserved
-    nullptr,             //  60: Reserved
-    nullptr,             //  61: Reserved
-    nullptr,             //  62: Reserved
-    Default_Handler,     //  63: DMA1_Stream7
-    nullptr,             //  64: Reserved
-    Default_Handler,     //  65: SDIO
-    Default_Handler,     //  66: TIM5
-    Default_Handler,     //  67: SPI3
-    nullptr,             //  68: Reserved
-    nullptr,             //  69: Reserved
-    nullptr,             //  70: Reserved
-    nullptr,             //  71: Reserved
-    Default_Handler,     //  72: DMA2_Stream0
-    Default_Handler,     //  73: DMA2_Stream1
-    Default_Handler,     //  74: DMA2_Stream2
-    Default_Handler,     //  75: DMA2_Stream3
-    Default_Handler,     //  76: DMA2_Stream4
-    nullptr,             //  77: Reserved
-    nullptr,             //  78: Reserved
-    nullptr,             //  79: Reserved
-    nullptr,             //  80: Reserved
-    nullptr,             //  81: Reserved
-    nullptr,             //  82: Reserved
-    Default_Handler,     //  83: OTG_FS
-    Default_Handler,     //  84: DMA2_Stream5
-    Default_Handler,     //  85: DMA2_Stream6
-    Default_Handler,     //  86: DMA2_Stream7
-    Default_Handler,     //  87: USART6
-    Default_Handler,     //  88: I2C3_EV
-    Default_Handler,     //  89: I2C3_ER
-    nullptr,             //  90: Reserved
-    nullptr,             //  91: Reserved
-    nullptr,             //  92: Reserved
-    nullptr,             //  93: Reserved
-    nullptr,             //  94: Reserved
-    nullptr,             //  95: Reserved
-    nullptr,             //  96: Reserved
-    Default_Handler,     //  97: FPU
-    nullptr,             //  98: Reserved
-    nullptr,             //  99: Reserved
-    Default_Handler,     // 100: SPI4
-    Default_Handler      // 101: SPI5
+    Default_Handler, //  16: WWDG
+    Default_Handler, //  17: PVD
+    Default_Handler, //  18: TAMP_STAMP
+    Default_Handler, //  19: RTC_WKUP
+    Default_Handler, //  20: FLASH
+    Default_Handler, //  21: RCC
+    EXTI0_IRQHandler, //  22: EXTI0
+    EXTI1_IRQHandler, //  23: EXTI1
+    EXTI2_IRQHandler, //  24: EXTI2
+    EXTI3_IRQHandler, //  25: EXTI3
+    EXTI4_IRQHandler, //  26: EXTI4
+    DMA1_Stream0_IRQHandler, //  27: DMA1_Stream0
+    DMA1_Stream1_IRQHandler, //  28: DMA1_Stream1
+    DMA1_Stream2_IRQHandler, //  29: DMA1_Stream2
+    DMA1_Stream3_IRQHandler, //  30: DMA1_Stream3
+    DMA1_Stream4_IRQHandler, //  31: DMA1_Stream4
+    DMA1_Stream5_IRQHandler, //  32: DMA1_Stream5
+    DMA1_Stream6_IRQHandler, //  33: DMA1_Stream6
+    Default_Handler, //  34: ADC
+    nullptr, //  35: Reserved
+    nullptr, //  36: Reserved
+    nullptr, //  37: Reserved
+    nullptr, //  38: Reserved
+    EXTI9_5_IRQHandler, //  39: EXTI9_5
+    Default_Handler, //  40: TIM1_BRK_TIM9
+    Default_Handler, //  41: TIM1_UP_TIM10
+    Default_Handler, //  42: TIM1_TRG_COM_TIM11
+    Default_Handler, //  43: TIM1_CC
+    Default_Handler, //  44: TIM2
+    Default_Handler, //  45: TIM3
+    Default_Handler, //  46: TIM4
+    Default_Handler, //  47: I2C1_EV
+    Default_Handler, //  48: I2C1_ER
+    Default_Handler, //  49: I2C2_EV
+    Default_Handler, //  50: I2C2_ER
+    Default_Handler, //  51: SPI1
+    Default_Handler, //  52: SPI2
+    Default_Handler, //  53: USART1
+    Default_Handler, //  54: USART2
+    nullptr, //  55: Reserved
+    EXTI15_10_IRQHandler, //  56: EXTI15_10
+    Default_Handler, //  57: RTC_Alarm
+    Default_Handler, //  58: OTG_FS_WKUP
+    nullptr, //  59: Reserved
+    nullptr, //  60: Reserved
+    nullptr, //  61: Reserved
+    nullptr, //  62: Reserved
+    Default_Handler, //  63: DMA1_Stream7
+    nullptr, //  64: Reserved
+    Default_Handler, //  65: SDIO
+    Default_Handler, //  66: TIM5
+    Default_Handler, //  67: SPI3
+    nullptr, //  68: Reserved
+    nullptr, //  69: Reserved
+    nullptr, //  70: Reserved
+    nullptr, //  71: Reserved
+    Default_Handler, //  72: DMA2_Stream0
+    Default_Handler, //  73: DMA2_Stream1
+    Default_Handler, //  74: DMA2_Stream2
+    Default_Handler, //  75: DMA2_Stream3
+    Default_Handler, //  76: DMA2_Stream4
+    nullptr, //  77: Reserved
+    nullptr, //  78: Reserved
+    nullptr, //  79: Reserved
+    nullptr, //  80: Reserved
+    nullptr, //  81: Reserved
+    nullptr, //  82: Reserved
+    Default_Handler, //  83: OTG_FS
+    Default_Handler, //  84: DMA2_Stream5
+    Default_Handler, //  85: DMA2_Stream6
+    Default_Handler, //  86: DMA2_Stream7
+    Default_Handler, //  87: USART6
+    Default_Handler, //  88: I2C3_EV
+    Default_Handler, //  89: I2C3_ER
+    nullptr, //  90: Reserved
+    nullptr, //  91: Reserved
+    nullptr, //  92: Reserved
+    nullptr, //  93: Reserved
+    nullptr, //  94: Reserved
+    nullptr, //  95: Reserved
+    nullptr, //  96: Reserved
+    Default_Handler, //  97: FPU
+    nullptr, //  98: Reserved
+    nullptr, //  99: Reserved
+    Default_Handler, // 100: SPI4
+    Default_Handler // 101: SPI5
 };

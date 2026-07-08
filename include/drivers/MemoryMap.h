@@ -852,7 +852,17 @@ namespace STM32F411::MemoryMap {
         volatile register_t VAL;
         volatile register_t CALIB;
     };
+    struct SYSCFGReg {
+        volatile uint32_t MEMRMP;
+        volatile uint32_t PMC;
+        volatile uint32_t EXTICR[4]; // The EXTILine multiplexer registers
+        uint32_t RESERVED[2];
+        volatile uint32_t CMPCR;
 
+
+
+    };
+    inline auto SYSCFG = reinterpret_cast<SYSCFGReg *>(0x40013800);
     // =========================================================================
     // Peripheral Base Addresses
     // =========================================================================

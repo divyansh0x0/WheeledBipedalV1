@@ -61,13 +61,10 @@ namespace STM32F411::MPU6050 {
     public:
         static constexpr unsigned int address = 0x68;
 
-        MPU6050() {
-            i2c::enable(true);
-
-
-        }
+        MPU6050() = default;
 
         void configure(GyroScale gyro_scale, AccelScale accel_scale, bool enable_interrupt) {
+            i2c::enable(true);
             // SET DLPF to delay imu to 2ms
             const uint8_t config_reg_value = (1u << 0);
             i2c::writeRegister(address, Registers::CONFIG, &config_reg_value, 1);
