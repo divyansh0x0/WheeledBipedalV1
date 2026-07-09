@@ -53,7 +53,7 @@ include_directories(include)
 add_executable(BipedalV1
         startup.cpp
         src/main.cpp
-        "include/drivers/PWM .h"
+        "include/drivers/PWM.h"
         include/drivers/MPU6050.h
         include/drivers/Interrupt.h)
 

@@ -166,7 +166,6 @@ namespace STM32F411 {
             REG->DR = reg_addr;
             if (!waitEvent(I2CFlags::TRANSFER_REGISTER_EMPTY)) return false;
 
-            REG->CR2 |= (1 << 11); // DMAEN (Enable DMA requests)
             //repeated start and read
             REG->CR1 |= 1 << 8;
             if (!waitEvent(I2CFlags::START_BIT_GENERATED))return false;
@@ -174,6 +173,10 @@ namespace STM32F411 {
             if (!waitEvent(I2CFlags::ADDRESS_SENT))return false;
 
             if (dma_stream) {
+                REG->CR1 |= (1 << 10); // Enable ACK so all bytes except last are ACKed
+                REG->CR2 |= (1 << 11); // DMAEN (Enable DMA requests)
+                REG->CR2 |= (1 << 12); // Set LAST bit to send NACK on final byte
+                clearAddress(); // Clear ADDR flag to start receiving
                 dma_stream->setEnabled(true);
             } else {
                 if (length == 1) {

@@ -86,9 +86,16 @@ namespace STM32F411 {
             EXTI2 = 8, // External Interrupt Line 2
             EXTI3 = 9, // External Interrupt Line 3
             EXTI4 = 10, // External Interrupt Line 4
-            DMA1_Stream5 = 16, // DMA1 Stream 5 (Our I2C1 RX)
+            DMA1_Stream0 = 11, // DMA1 Stream 0
+            DMA1_Stream1 = 12, // DMA1 Stream 1
+            DMA1_Stream2 = 13, // DMA1 Stream 2
+            DMA1_Stream3 = 14, // DMA1 Stream 3
+            DMA1_Stream4 = 15, // DMA1 Stream 4
+            DMA1_Stream5 = 16, // DMA1 Stream 5
+            DMA1_Stream6 = 17, // DMA1 Stream 6
             EXTI9_5 = 23, // External Interrupt Lines 5 through 9
             EXTI15_10 = 40, // External Interrupt Lines 10 through 15
+            DMA1_Stream7 = 47, // DMA1 Stream 7
         };
 
         enum class EXTISource {
@@ -110,8 +117,15 @@ namespace STM32F411 {
             NVIC->ICER[irq_num / 32] = (1 << (irq_num % 32));
         }
 
+        static constexpr IRQn DMA1_STREAM_IRQS[8] = {
+            IRQn::DMA1_Stream0, IRQn::DMA1_Stream1, IRQn::DMA1_Stream2, IRQn::DMA1_Stream3,
+            IRQn::DMA1_Stream4, IRQn::DMA1_Stream5, IRQn::DMA1_Stream6, IRQn::DMA1_Stream7,
+        };
+
         static void attachDMAInterrupt(Stream stream, InterruptCallback callback) {
-            callbacks[static_cast<uint32_t>(stream)] = callback;
+            const auto stream_idx = static_cast<uint32_t>(stream);
+            callbacks[stream_idx] = callback;
+            enable(DMA1_STREAM_IRQS[stream_idx]);
         }
 
         static void setInterruptPriority(IRQn irq, Priority priority) {
@@ -136,6 +150,15 @@ namespace STM32F411 {
 
             // 5. Unmask this line so the EXTI hardware actually listens to it
             EXTIReg->IMR |= (1 << line_num);
+
+            // Enable the correct NVIC IRQ for this EXTI line
+            if (line_num <= 4) {
+                enable(static_cast<IRQn>(static_cast<uint8_t>(IRQn::EXTI0) + line_num));
+            } else if (line_num <= 9) {
+                enable(IRQn::EXTI9_5);
+            } else {
+                enable(IRQn::EXTI15_10);
+            }
 
             EXTIReg->RTSR |= (1 << line_num);
             if (trigger == EXTITrigger::FALLING) {

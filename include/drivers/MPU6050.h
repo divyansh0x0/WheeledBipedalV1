@@ -79,7 +79,7 @@ namespace STM32F411::MPU6050 {
             i2c::writeRegister(address, Registers::PWR_MGMT_1, &pwr_mgmt_1_reg_value, 1);
 
             const uint8_t smprt_div_reg_value = 1;
-            i2c::writeRegister(address, Registers::PWR_MGMT_1, &smprt_div_reg_value, 1);
+            i2c::writeRegister(address, Registers::SMPRT_DIV, &smprt_div_reg_value, 1);
 
             if (enable_interrupt) {
                 const uint8_t int_pin_cfg = (1 << 4);
@@ -95,9 +95,16 @@ namespace STM32F411::MPU6050 {
             i2c::writeRegister(address, Registers::PWR_MGMT_1, &pwr_mgmt_1_reg, 1);
         }
 
-        void beginRead(MemoryMap::DMAStream* dma_stream) {
+        void beginRead() {
+            auto stream_id = MemoryMap::DMA1->STREAMS[0].isEnabled()
+                     ? 5
+                     : 0;
+            MemoryMap::DMAStream* dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+            InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::Stream>(stream_id), []{
+                I2C1::finishDMARead();
+            });
             dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH1);
-            i2c::readRegister(address, Registers::ACCEL_XOUT_H, buffer, buffer_size);
+            i2c::readRegister(address, Registers::ACCEL_XOUT_H, buffer, buffer_size, dma_stream);
         }
 
         [[nodiscard]] int16_t getAccelX() const {

@@ -63,7 +63,8 @@ namespace STM32F411::MemoryMap {
         ADC1 = 8,
         SDIO = 11,
         SPI1 = 12,
-        SPI4 = 13
+        SPI4 = 13,
+        SYSCFG = 14
     };
 
 
