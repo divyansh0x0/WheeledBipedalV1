@@ -17,6 +17,7 @@ volatile float battery_percentage = 0.0f;
 volatile float actual_voltage_debug = 0.0f; // Useful to watch in CubeMonitor
 volatile unsigned int count = 1000;
 volatile unsigned int frequency = 4000;
+volatile unsigned int duty = 50;
 volatile unsigned int ARR = 1000;
 volatile unsigned int PSC = 1000;
 volatile int16_t gyroX = 0;
@@ -39,14 +40,14 @@ STM32F411::MemoryMap::DMAStream *dma_stream;
     Pins::C13::enableOutputMode();
     Pins::B8::enableAlternateFunction<Peripherals::SCL1>();
     Pins::B7::enableAlternateFunction<Peripherals::SDA1>();
+    Pins::B6::enableAlternateFunction<Peripherals::TIMER4>();
+
     auto adc = ADC::ADC<Pins::B0>();
     adc.enable(ADC::Resolution::VeryHigh, ADC::SampleTime::Cycles480);
     adc.enableDMARead();
 
-    Pins::B6::enableAlternateFunction<Peripherals::TIMER4>();
-    auto T4C2 = PWM::PWM<PWM::Timer::TIMER4, PWM::TimerChannel::Channel1>();
-    T4C2.enable();
-    T4C2.setDutyCycle(50);
+    auto T2C1 = PWM::PWM<PWM::Timer::TIMER4, PWM::TimerChannel::Channel1>();
+    T2C1.enable();
 
 
     mpu6050 =  MPU6050::MPU6050<I2C1>();
@@ -55,8 +56,10 @@ STM32F411::MemoryMap::DMAStream *dma_stream;
     InterruptManager::attachEXTIInterrupt(InterruptManager::EXTILine::Line5, []{mpu6050.beginRead();}, InterruptManager::EXTISource::GPIOB, InterruptManager::EXTITrigger::RISING);
     t1 = Clock::millis();
     t2 = Clock::millis();
+        T2C1.setDutyCycle(duty);
+        T2C1.setDutyCycle(duty);
     while (true) {
-        T4C2.setFrequency(frequency);
+        T2C1.setFrequency(frequency);
         count = MemoryMap::TIMER4->CNT;
         // 1. Calculate voltage at the physical pin (0-4095 range for 12-bit)
         const float pin_voltage = (static_cast<float>(adc.buffer[0]) / 4095.0f) * MAX_REFERENCE_VOLTAGE;
@@ -78,12 +81,13 @@ STM32F411::MemoryMap::DMAStream *dma_stream;
         gyroX = mpu6050.getGyroX();
         gyroY = mpu6050.getGyroY();
         if (Clock::millis() - t2 > 1000) {
-            frequency += 20;
+            frequency += 500;
             Pins::C13::toggle();
             t2 = Clock::millis();
         }
-        if (frequency > 15000) {
-            frequency = 3000;
+        if (frequency > 20000) {
+            frequency = 0000;
         }
+        duty= 50;
     }
 }
