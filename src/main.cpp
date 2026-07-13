@@ -4,6 +4,7 @@
 #include "drivers/MemoryMap.h"
 #include "drivers/MPU6050.h"
 #include "drivers/PWM.h"
+#include "drivers/AS5600MUX.h"
 
 // Define the real-world battery limits for a 3S LiPo
 constexpr float MAX_BATTERY_VOLTAGE = 12.6f;
@@ -22,9 +23,12 @@ volatile unsigned int ARR = 1000;
 volatile unsigned int PSC = 1000;
 volatile int16_t gyroX = 0;
 volatile int16_t gyroY = 0;
+volatile float as5600_angle = 0.0f;                                  // AS5600 angle in degrees (0-360) on MUX channel 2
+volatile STM32F411::AS5600::MagnetStatus as5600_magnet_status = STM32F411::AS5600::MagnetStatus::ReadError;  // Magnet status on MUX channel 2
 volatile uint32_t t1;
 volatile uint32_t t2;
 STM32F411::MPU6050::MPU6050<STM32F411::I2C1> mpu6050;
+STM32F411::AS5600::AS5600MUX<STM32F411::I2C2> encoder;
 STM32F411::MemoryMap::DMAStream *dma_stream;
 
 [[noreturn]] int main() {
@@ -38,6 +42,9 @@ STM32F411::MemoryMap::DMAStream *dma_stream;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB2Peripheral::SYSCFG);
 
     Pins::C13::enableOutputMode();
+    Pins::B10::enableAlternateFunction<Peripherals::SCL2>();
+    Pins::B9::enableAlternateFunction<Peripherals::SDA2>();
+
     Pins::B8::enableAlternateFunction<Peripherals::SCL1>();
     Pins::B7::enableAlternateFunction<Peripherals::SDA1>();
     Pins::B6::enableAlternateFunction<Peripherals::TIMER4>();
@@ -49,6 +56,10 @@ STM32F411::MemoryMap::DMAStream *dma_stream;
     auto T2C1 = PWM::PWM<PWM::Timer::TIMER4, PWM::TimerChannel::Channel1>();
     T2C1.enable();
 
+    // Initialize I2C2 for the PCA9548A multiplexer + AS5600 encoders
+    encoder = AS5600::AS5600MUX<I2C2>();
+    encoder.configure(2);  // mux channel 2
+
 
     mpu6050 =  MPU6050::MPU6050<I2C1>();
     mpu6050.configure(MPU6050::GyroScale::_500, MPU6050::AccelScale::g2, true);
@@ -58,6 +69,8 @@ STM32F411::MemoryMap::DMAStream *dma_stream;
     t2 = Clock::millis();
         T2C1.setDutyCycle(duty);
         T2C1.setDutyCycle(duty);
+
+
     while (true) {
         T2C1.setFrequency(frequency);
         count = MemoryMap::TIMER4->CNT;
@@ -80,6 +93,12 @@ STM32F411::MemoryMap::DMAStream *dma_stream;
         ARR = MemoryMap::TIMER4->ARR;
         gyroX = mpu6050.getGyroX();
         gyroY = mpu6050.getGyroY();
+
+        // Read AS5600 encoder on PCA9548A multiplexer channel 2
+        as5600_magnet_status = encoder.readMagnetStatus();
+        if (as5600_magnet_status == AS5600::MagnetStatus::OK) {
+            encoder.readAngle(as5600_angle);
+        }
         if (Clock::millis() - t2 > 1000) {
             frequency += 500;
             Pins::C13::toggle();

@@ -81,6 +81,45 @@ namespace STM32F411 {
             REG->CR1 |= 1u; // set EN to true
         }
 
+        /**
+         * Write a single raw byte to a device that has no register address
+         * (e.g. PCA9548A multiplexer).
+         * Sends: START → i2c_addr+W → byte → STOP
+         */
+        static bool writeByte(uint8_t i2c_addr, uint8_t byte) {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
+
+            // START
+            REG->CR1 |= 1 << 8;
+            if (!waitEvent(I2CFlags::START_BIT_GENERATED)) {
+                REG->CR1 |= 1 << 9; // STOP to free the bus
+                return false;
+            }
+
+            // Address + Write
+            REG->DR = i2c_addr << 1;
+            if (!waitEvent(I2CFlags::ADDRESS_SENT)) {
+                REG->CR1 |= 1 << 9; // STOP to free the bus
+                return false;
+            }
+            clearAddress();
+
+            // Data byte
+            REG->DR = byte;
+            if (!waitEvent(I2CFlags::TRANSFER_REGISTER_EMPTY)) {
+                REG->CR1 |= 1 << 9;
+                return false;
+            }
+            if (!waitEvent(I2CFlags::BYTE_TRANSFER_FINISHED)) {
+                REG->CR1 |= 1 << 9;
+                return false;
+            }
+
+            // STOP
+            REG->CR1 |= 1 << 9;
+            return true;
+        }
+
         static bool writeRegister(uint8_t i2c_addr, uint8_t reg_addr, const uint8_t *data, const uint32_t length,
                                   MemoryMap::DMAStream *dma_stream = nullptr) {
             if (length == 0) return true;
@@ -245,7 +284,7 @@ namespace STM32F411 {
     };
 
     using I2C1 = I2C<0x4000'5400>;
-    using I2C2 = I2C<0x4000'5C00>;
-    using I2C3 = I2C<0x4000'5800>;
+    using I2C2 = I2C<0x4000'5800>;
+    using I2C3 = I2C<0x4000'5C00>;
 }
 #endif //BIPEDALV1_I2C_H

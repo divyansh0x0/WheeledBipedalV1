@@ -56,6 +56,7 @@ add_executable(BipedalV1
         "include/drivers/PWM.h"
         include/drivers/MPU6050.h
         include/drivers/Interrupt.h
+        include/drivers/AS5600MUX.h
 )
 
 set_target_properties(BipedalV1 PROPERTIES SUFFIX ".elf")

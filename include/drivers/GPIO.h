@@ -58,7 +58,11 @@ namespace STM32F411 {
             port->AFR[reg] &= ~(0b1111 << bitPos);
             port->AFR[reg] |= static_cast<uint8_t>(af) << bitPos;
 
-            port->configurePin(index, MemoryMap::GPIORegister::Mode::AlternateFunction);
+            port->configurePin(index, 
+                               MemoryMap::GPIORegister::Mode::AlternateFunction,
+                               Peripheral::pull,
+                               Peripheral::speed,
+                               Peripheral::type);
         }
     };
 
@@ -108,7 +112,9 @@ namespace STM32F411 {
     template<> struct PeripheralTraits<Peripherals::SCL1, Pins::B6> { static constexpr uint8_t af = 4; };
 
     template<> struct PeripheralTraits<Peripherals::SDA1, Pins::B7> { static constexpr uint8_t af = 4; };
-    template<> struct PeripheralTraits<Peripherals::SDA1,  Pins::B9> { static constexpr uint8_t af = 4; };
+    
+    template<> struct PeripheralTraits<Peripherals::SDA2,  Pins::B9> { static constexpr uint8_t af = 9; };
+    template<> struct PeripheralTraits<Peripherals::SCL2,  Pins::B10> { static constexpr uint8_t af = 4; };
 
     template<> struct PeripheralTraits<Peripherals::TIMER4,  Pins::B7> { static constexpr uint8_t af = 2; };
     template<> struct PeripheralTraits<Peripherals::TIMER4,  Pins::B6> { static constexpr uint8_t af = 2; };
