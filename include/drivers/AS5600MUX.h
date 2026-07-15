@@ -7,6 +7,7 @@
 #include <concepts>
 #include "MemoryMap.h"
 #include "I2C.h"
+#include "Clock.h"
 
 namespace STM32F411::AS5600 {
 
@@ -62,6 +63,12 @@ namespace STM32F411::AS5600 {
         // ── Instance data ─────────────────────────────────────────
         uint8_t channel = 0;
         uint8_t buffer[2] = {};
+
+        // ── State for velocity calculation ────────────────────────
+        float previous_angle = 0.0f;
+        uint32_t previous_micros = 0;
+        float filtered_velocity_deg_s = 0.0f;
+        bool first_reading = true;
 
         /**
          * Select this encoder's channel on the PCA9548A.
@@ -142,6 +149,70 @@ namespace STM32F411::AS5600 {
                 return false;
 
             raw_out = (static_cast<uint16_t>(buffer[0] & 0x0F) << 8) | buffer[1];
+            return true;
+        }
+
+        /**
+         * Reads the angle, calculates the velocity (with EMA filtering) and returns RPM.
+         * Automatically handles 0-360 degree wrap-around.
+         * 
+         * @param rpm_out         Receives the RPM of the encoder
+         * @param filter_alpha    EMA filter alpha (0.0 to 1.0). Lower is smoother.
+         * @return true on success
+         */
+        bool readRPM(volatile float &rpm_out, float filter_alpha = 0.8f) {
+            volatile float current_angle = 0.0f;
+            if (!readAngle(current_angle)) return false;
+
+            uint32_t current_micros = Clock::micros();
+            
+            if (first_reading) {
+                previous_angle = current_angle;
+                previous_micros = current_micros;
+                filtered_velocity_deg_s = 0.0f;
+                first_reading = false;
+                rpm_out = 0.0f;
+                return true;
+            }
+
+            float delta_time = static_cast<float>(current_micros - previous_micros);
+            
+            // To prevent massive quantization noise spikes, we enforce a minimum time step.
+            // If called too rapidly (e.g., every 100us), a 1-bit encoder jitter creates huge RPM spikes.
+            // Waiting at least 10,000 microseconds (10ms) accumulates enough angle change for smooth readings.
+            if (delta_time < 10000.0f) {
+                rpm_out = filtered_velocity_deg_s / 6.0f;
+                return true; 
+            }
+
+            float delta_angle = current_angle - previous_angle;
+
+            // Handle 0-360 degree wrap-around (shortest path)
+            if (delta_angle > 180.0f) {
+                delta_angle -= 360.0f;
+            } else if (delta_angle < -180.0f) {
+                delta_angle += 360.0f;
+            }
+
+            float raw_velocity_deg_s = (delta_angle * 1000000.0f) / delta_time;
+            
+            // Basic outlier rejection: ignore physically impossible accelerations (e.g. noise spikes)
+            // 20000 deg/s is about 1500 RPM. If the raw reading exceeds this suddenly, it might be noise.
+            if (raw_velocity_deg_s > 15000.0f || raw_velocity_deg_s < -15000.0f) {
+                rpm_out = filtered_velocity_deg_s / 6.0f;
+                // Still update previous state so we don't get permanently stuck on a bad wrap
+                previous_angle = current_angle;
+                previous_micros = current_micros;
+                return true; 
+            }
+
+            filtered_velocity_deg_s = (filter_alpha * raw_velocity_deg_s) + ((1.0f - filter_alpha) * filtered_velocity_deg_s);
+            
+            // 1 RPM = 6 degrees per second
+            rpm_out = filtered_velocity_deg_s / 6.0f;
+
+            previous_angle = current_angle;
+            previous_micros = current_micros;
             return true;
         }
 

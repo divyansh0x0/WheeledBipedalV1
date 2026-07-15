@@ -6,6 +6,7 @@
 #define BIPEDALV1_I2C_H
 #include "MemoryMap.h"
 #include "Clock.h"
+#include "GPIO.h"
 
 namespace STM32F411 {
     template<unsigned int addr>
@@ -35,10 +36,21 @@ namespace STM32F411 {
                 // If a NACK is received, or a bus error happens, bail out instantly
                 if (REG->SR1 & (I2CFlags::ACKNOWLEDGE_FAILURE | I2CFlags::BUS_ERROR | I2CFlags::ARBITRATION_LOST)) {
                     REG->SR1 &= ~(I2CFlags::ACKNOWLEDGE_FAILURE | I2CFlags::BUS_ERROR | I2CFlags::ARBITRATION_LOST);
+                    
+                    // Reset the peripheral on error to avoid bus lockup
+                    REG->CR1 |= (1 << 15); // Set SWRST
+                    REG->CR1 &= ~(1 << 15); // Clear SWRST
+                    enable(); // Re-initialize I2C
+                    
                     return false;
                 }
 
                 if (Clock::millis() - start > timeout_ms) {
+                    // Reset the peripheral on timeout to avoid bus lockup
+                    REG->CR1 |= (1 << 15); // Set SWRST
+                    REG->CR1 &= ~(1 << 15); // Clear SWRST
+                    enable(); // Re-initialize I2C
+                    
                     return false; // Software timeout
                 }
             }
@@ -86,20 +98,89 @@ namespace STM32F411 {
          * (e.g. PCA9548A multiplexer).
          * Sends: START → i2c_addr+W → byte → STOP
          */
+        template<typename SclPin, typename SdaPin, typename SclPeriph, typename SdaPeriph>
+        static void recoverBus() {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
+            // 1. Disable I2C
+            REG->CR1 &= ~1u;
+
+            // 2. Configure SCL and SDA as Output
+            SclPin::enableOutputMode();
+            SdaPin::enableOutputMode();
+            
+            // Set as Open-Drain using the exposed port_address and pin_index
+            const auto scl_port = reinterpret_cast<volatile MemoryMap::GPIORegister *>(SclPin::port_address);
+            scl_port->OTYPER |= (1 << SclPin::pin_index);
+            const auto sda_port = reinterpret_cast<volatile MemoryMap::GPIORegister *>(SdaPin::port_address);
+            sda_port->OTYPER |= (1 << SdaPin::pin_index);
+
+            // Set both HIGH
+            SclPin::set(HIGH);
+            SdaPin::set(HIGH);
+            for (int j = 0; j < 1000; ++j) asm volatile("nop");
+
+            // 3. Toggle SCL up to 9 times to clock out stuck slaves
+            for (int i = 0; i < 9; ++i) {
+                if (SdaPin::getStatus() == HIGH) {
+                    break;
+                }
+                SclPin::set(LOW);
+                for (int j = 0; j < 1000; ++j) asm volatile("nop");
+                SclPin::set(HIGH);
+                for (int j = 0; j < 1000; ++j) asm volatile("nop");
+            }
+
+            // 4. Generate STOP condition manually
+            SdaPin::set(LOW);
+            for (int j = 0; j < 1000; ++j) asm volatile("nop");
+            SclPin::set(HIGH);
+            for (int j = 0; j < 1000; ++j) asm volatile("nop");
+            SdaPin::set(HIGH);
+            for (int j = 0; j < 1000; ++j) asm volatile("nop");
+
+            // 5. Reconfigure as Alternate Function
+            SclPin::template enableAlternateFunction<SclPeriph>();
+            SdaPin::template enableAlternateFunction<SdaPeriph>();
+
+            // 6. Re-enable I2C
+            enable();
+        }
+
+        static bool isBusBusy() {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
+            return (REG->SR2 & (1 << 1)) != 0;
+        }
+
+        static bool waitFreeBus() {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
+            const uint32_t start = Clock::micros();
+            while (REG->SR2 & (1 << 1)) {
+                // A normal STOP bit takes ~2.5us at 400kHz.
+                // If it's busy for > 500us, the bus is locked up (slave holding SDA low).
+                if (Clock::micros() - start > 500) {
+                    REG->CR1 |= (1 << 15);
+                    REG->CR1 &= ~(1 << 15);
+                    enable();
+                    return false;
+                }
+            }
+            return true;
+        }
+
         static bool writeByte(uint8_t i2c_addr, uint8_t byte) {
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
+            
+            if (!waitFreeBus()) return false;
 
             // START
             REG->CR1 |= 1 << 8;
             if (!waitEvent(I2CFlags::START_BIT_GENERATED)) {
-                REG->CR1 |= 1 << 9; // STOP to free the bus
                 return false;
             }
 
             // Address + Write
             REG->DR = i2c_addr << 1;
             if (!waitEvent(I2CFlags::ADDRESS_SENT)) {
-                REG->CR1 |= 1 << 9; // STOP to free the bus
                 return false;
             }
             clearAddress();
@@ -107,11 +188,9 @@ namespace STM32F411 {
             // Data byte
             REG->DR = byte;
             if (!waitEvent(I2CFlags::TRANSFER_REGISTER_EMPTY)) {
-                REG->CR1 |= 1 << 9;
                 return false;
             }
             if (!waitEvent(I2CFlags::BYTE_TRANSFER_FINISHED)) {
-                REG->CR1 |= 1 << 9;
                 return false;
             }
 
@@ -134,6 +213,8 @@ namespace STM32F411 {
                 dma_stream->enableMemoryIncrementMode(true);
                 dma_stream->enableTransferCompleteInterrupt(true);
             }
+
+            if (!waitFreeBus()) return false;
 
             // START Transaction
             REG->CR1 |= 1 << 8;
@@ -194,6 +275,7 @@ namespace STM32F411 {
                 dma_stream->enableMemoryIncrementMode(true);
                 dma_stream->enableTransferCompleteInterrupt(true);
             }
+            if (!waitFreeBus()) return false;
             //Start
             REG->CR1 |= 1 << 8;
             if (!waitEvent(I2CFlags::START_BIT_GENERATED)) return false;

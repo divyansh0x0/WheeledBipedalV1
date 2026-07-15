@@ -7,7 +7,7 @@
 
 #include "Clock.h"
 #include "MemoryMap.h"
-
+#include <cmath>
 namespace STM32F411::PWM {
     enum class Timer {
         TIMER2 = 0x4000'0000u,
@@ -26,19 +26,14 @@ namespace STM32F411::PWM {
     template<Timer timer, TimerChannel channel>
     class PWM {
     public:
-        void setFrequency(uint32_t frequency_hz=1000, unsigned int resolution = 10000) {
-
+        void setFrequency(uint32_t frequency_hz) {
             const uint32_t system_clock_speed = Clock::getAPB1TimerClock();
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
-            uint32_t max_freq_hz = system_clock_speed/resolution;
-            uint32_t min_freq_hz = system_clock_speed/(65536 * resolution) + 1;
-            if (frequency_hz > max_freq_hz) {
-                frequency_hz = max_freq_hz;
+            uint32_t resolution = system_clock_speed / frequency_hz;
+            uint32_t min_resolution = system_clock_speed / (65536 * frequency_hz) + 1;
+            if (resolution < min_resolution) {
+                resolution = min_resolution;
             }
-            if (frequency_hz < min_freq_hz) {
-                frequency_hz = min_freq_hz;
-            }
-
             const uint32_t psc_value = (system_clock_speed / (frequency_hz * resolution)) - 1;
 
             const uint32_t arr_value = resolution - 1;
@@ -50,9 +45,11 @@ namespace STM32F411::PWM {
         }
 
 
-        void setDutyCycle(uint32_t duty_cycle) {
+        void setDutyCycle(float duty_cycle) {
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
-            const uint32_t ccr_value = ((reg->ARR + 1) * duty_cycle) / 100;
+            const auto ccr_value = static_cast<uint32_t>(
+                std::round((static_cast<float>(reg->ARR + 1u) * duty_cycle) / 100.0f)
+            );
             if constexpr (channel == TimerChannel::Channel1) {
                 reg->CCR1 = ccr_value;
             } else if constexpr (channel == TimerChannel::Channel2) {
@@ -106,7 +103,7 @@ namespace STM32F411::PWM {
             reg->CR1 |= (0b1 << 0); //Enable counter mode
         }
 
-         void disable() {
+        void disable() {
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
             reg->CCER &= ~(0b1 << (static_cast<uint32_t>(channel) * 4));
         }
