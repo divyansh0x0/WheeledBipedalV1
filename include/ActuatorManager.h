@@ -30,7 +30,10 @@ namespace BipedalV1 {
                 STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER2, STM32F411::PWM::TimerChannel::Channel2>();
 
     public:
-        void initialize() {
+        ActuatorManager() = default;
+        ActuatorManager(ActuatorManager& other) = delete;
+        ActuatorManager(ActuatorManager&& other) = delete;
+        void  initialize() {
             STM32F411::MemoryMap::RCC1->enablePeripheral(STM32F411::MemoryMap::AHB1Peripheral::GPIOA);
 
             using m_left_wheel = STM32F411::Pins::A1;
@@ -60,17 +63,11 @@ namespace BipedalV1 {
             m_pwm_lower_right.setDutyCycle(speed.toInvertedDuty());
         }
 
-
-
-        void moveForward(const float speed) {
-            const LockedAntiPhaseSpeed targetSpeed(speed);
-            setLeftWheel(targetSpeed);
-            setRightWheel(targetSpeed);
-        }
-        void moveBackward(const float speed) {
-            const LockedAntiPhaseSpeed targetSpeed(-speed);
-            setLeftWheel(targetSpeed);
-            setRightWheel(targetSpeed);
+        void move(const float speed_left,const float speed_right) {
+            const LockedAntiPhaseSpeed targetSpeedLeft(speed_left);
+            const LockedAntiPhaseSpeed targetSpeedRight(speed_right);
+            setLeftWheel(targetSpeedLeft);
+            setRightWheel(targetSpeedRight);
         }
     };
 }
