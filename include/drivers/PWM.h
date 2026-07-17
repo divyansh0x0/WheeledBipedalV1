@@ -48,7 +48,7 @@ namespace STM32F411::PWM {
         void setDutyCycle(float duty_cycle) {
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
             const auto ccr_value = static_cast<uint32_t>(
-                std::round((static_cast<float>(reg->ARR + 1u) * duty_cycle) / 100.0f)
+                std::round((static_cast<float>(reg->ARR + 1u) * duty_cycle))
             );
             if constexpr (channel == TimerChannel::Channel1) {
                 reg->CCR1 = ccr_value;

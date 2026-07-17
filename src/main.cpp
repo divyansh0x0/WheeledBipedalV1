@@ -21,8 +21,6 @@ volatile unsigned int count = 1000;
 volatile unsigned int frequency = 7000;
 // 6000 to 7600
 volatile float duty = 0;
-volatile unsigned int ARR = 1000;
-volatile unsigned int PSC = 1000;
 volatile int16_t gyroX = 0;
 volatile int16_t gyroY = 0;
 volatile float as5600_angle = 0.0f; // AS5600 angle in degrees (0-360) on MUX channel 2
@@ -69,11 +67,8 @@ STM32F411::MPU6050::MPU6050<STM32F411::I2C1> mpu6050;
     T4C1.enable();
 
     // Initialize I2C2 for the PCA9548A multiplexer + AS5600 encoders
-
     auto encoder = STM32F411::AS5600::AS5600MUX<STM32F411::I2C2>();
-
     encoder.configure(2); // mux channel 2
-
 
     mpu6050 = MPU6050::MPU6050<I2C1>();
     mpu6050.configure(MPU6050::GyroScale::_500, MPU6050::AccelScale::g2, true);
@@ -138,7 +133,7 @@ STM32F411::MPU6050::MPU6050<STM32F411::I2C1> mpu6050;
             Pins::B1::set(HIGH);
             t1 = Clock::millis();
         }
-       actuator_manager.moveForward(100.0f);
+       actuator_manager.moveForward(1);
 
     }
 }

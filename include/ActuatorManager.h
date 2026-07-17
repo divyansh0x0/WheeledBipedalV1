@@ -8,6 +8,21 @@
 #include "drivers/PWM.h"
 
 namespace BipedalV1 {
+    class LockedAntiPhaseSpeed {
+        float m_normalized_speed;
+
+    public:
+        constexpr explicit LockedAntiPhaseSpeed(float speed)
+            : m_normalized_speed(speed < -1.0f ? -1.0f : (speed > 1.0f ? 1.0f : speed)) {}
+
+        [[nodiscard]] constexpr float toDuty() const {
+            return (m_normalized_speed + 1.0f) * 0.5f;
+        }
+
+        [[nodiscard]] constexpr float toInvertedDuty() const {
+            return 1.0f - toDuty();
+        }
+    };
     class ActuatorManager {
         STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER2, STM32F411::PWM::TimerChannel::Channel1> m_pwm_lower_left =
                 STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER2, STM32F411::PWM::TimerChannel::Channel1>();
@@ -38,9 +53,24 @@ namespace BipedalV1 {
             phased_anti_lock_pwm_enable::set(STM32F411::GPIOStatus::HIGH);
         }
 
+        void setLeftWheel(const LockedAntiPhaseSpeed speed) {
+            m_pwm_lower_left.setDutyCycle(speed.toDuty());
+        }
+        void setRightWheel(const LockedAntiPhaseSpeed speed) {
+            m_pwm_lower_right.setDutyCycle(speed.toInvertedDuty());
+        }
+
+
+
         void moveForward(const float speed) {
-            m_pwm_lower_left.setDutyCycle(speed);
-            m_pwm_lower_right.setDutyCycle(speed);
+            const LockedAntiPhaseSpeed targetSpeed(speed);
+            setLeftWheel(targetSpeed);
+            setRightWheel(targetSpeed);
+        }
+        void moveBackward(const float speed) {
+            const LockedAntiPhaseSpeed targetSpeed(-speed);
+            setLeftWheel(targetSpeed);
+            setRightWheel(targetSpeed);
         }
     };
 }
