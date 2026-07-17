@@ -25,6 +25,7 @@ namespace STM32F411::ADC {
         Cycles144,
         Cycles480,
     };
+
     // Base template (undefined)
     template<typename Pin>
     struct ADCTraits;
@@ -84,7 +85,7 @@ namespace STM32F411::ADC {
 
             setSequence(channels, length);
 
-            setSampleTime(sample_time, channels,length);
+            setSampleTime(sample_time, channels, length);
             // Turn on the ADC
             adc->CR2 |= (0b1 << 0);
         }
@@ -105,9 +106,9 @@ namespace STM32F411::ADC {
             MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::DMA2);
 
             // Only stream 4 and 0 can be used with ADC for data transfer both at channel 1
-            MemoryMap::DMAStream* dma_stream = MemoryMap::DMA2->STREAMS[0].isEnabled()
-                                  ? &MemoryMap::DMA2->STREAMS[4]
-                                  : &MemoryMap::DMA2->STREAMS[0];
+            MemoryMap::DMAStream *dma_stream = MemoryMap::DMA2->STREAMS[0].isEnabled()
+                                                   ? &MemoryMap::DMA2->STREAMS[4]
+                                                   : &MemoryMap::DMA2->STREAMS[0];
             dma_stream->setDataTransferMode(MemoryMap::DMAStream::TransferDirection::PERIPHERAL_TO_MEMORY);
             dma_stream->setPeripheralAddress(&adc->DR);
             dma_stream->setMemoryAddress(&buffer[0]);
@@ -115,7 +116,7 @@ namespace STM32F411::ADC {
             if (sizeof...(SensorPins) <= 4)
                 dma_stream->enableFIFO(true, static_cast<MemoryMap::DMAStream::FIFOStorageWord>(sizeof...(SensorPins)));
             dma_stream->setSize(MemoryMap::DMAStream::DMAMemorySize::HALF_WORD,
-                               MemoryMap::DMAStream::DMAMemorySize::HALF_WORD);
+                                MemoryMap::DMAStream::DMAMemorySize::HALF_WORD);
             dma_stream->enableMemoryIncrementMode(true);
             dma_stream->enableCircularMode(true);
             dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH0);
@@ -129,7 +130,6 @@ namespace STM32F411::ADC {
         }
 
     private:
-
         void setSequence(const uint8_t *channels, uint8_t length) {
             const auto adc = MemoryMap::ADC;
 
@@ -163,11 +163,11 @@ namespace STM32F411::ADC {
         void setSampleTime(SampleTime sample_time, const uint8_t *channels, uint8_t length) {
             for (uint8_t i = 0; i < length; i++) {
                 if (channels[i] <= 9) {
-                   MemoryMap::ADC->SMPR2 &= ~(0b111 << (channels[i] * 3));
+                    MemoryMap::ADC->SMPR2 &= ~(0b111 << (channels[i] * 3));
                     MemoryMap::ADC->SMPR2 |= static_cast<unsigned int>(sample_time) << (channels[i] * 3);
                 } else {
-                   MemoryMap::ADC->SMPR1 &= ~(0b111 << ((channels[i] - 10) * 3));
-                    MemoryMap::ADC->SMPR1 |=  static_cast<unsigned int>(sample_time) << ((channels[i] - 10) * 3);
+                    MemoryMap::ADC->SMPR1 &= ~(0b111 << ((channels[i] - 10) * 3));
+                    MemoryMap::ADC->SMPR1 |= static_cast<unsigned int>(sample_time) << ((channels[i] - 10) * 3);
                 }
             }
         }

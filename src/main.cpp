@@ -1,4 +1,5 @@
 #include "ActuatorManager.h"
+#include "BatteryManager.h"
 #include "drivers/GPIO.h"
 #include "drivers/ADC.h"
 #include "drivers/Interrupt.h"
@@ -35,7 +36,9 @@ volatile float output_rpm;
 volatile uint32_t t1;
 volatile uint32_t t2;
 volatile float speed = 0.0f;
-STM32F411::MPU6050::MPU6050<STM32F411::I2C1> mpu6050;
+STM32F411::MPU6050::MPU6050<STM32F411::I2C1> mpu6050{};
+BipedalV1::BatteryManager<MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE, 133.0f, 33.0f> battery_manager{};
+BipedalV1::ActuatorManager actuator_manager{};
 
 [[noreturn]] int main() {
     using namespace STM32F411;
@@ -54,41 +57,19 @@ STM32F411::MPU6050::MPU6050<STM32F411::I2C1> mpu6050;
     Pins::B8::enableAlternateFunction<Peripherals::SCL1>();
     Pins::B7::enableAlternateFunction<Peripherals::SDA1>();
 
-    auto adc = ADC::ADC<Pins::B0>();
-
-    adc.enable(ADC::Resolution::VeryHigh, ADC::SampleTime::Cycles480);
-    adc.enableDMARead();
-
-    // Initialize I2C2 for the PCA9548A multiplexer + AS5600 encoders
-    // auto encoder = STM32F411::AS5600::AS5600MUX<I2C2>();
-    // encoder.configure(2); // mux channel 2
-
-    mpu6050 = MPU6050::MPU6050<I2C1>();
     mpu6050.configure(MPU6050::GyroScale::_500, MPU6050::AccelScale::g2, true);
+    battery_manager.initialize();
+    actuator_manager.initialize();
+
     mpu6050.beginRead();
     InterruptManager::attachEXTIInterrupt(InterruptManager::EXTILine::Line5, [] { mpu6050.beginRead(); },
                                           InterruptManager::EXTISource::GPIOB, InterruptManager::EXTITrigger::RISING);
     t1 = Clock::millis();
     t2 = Clock::millis();
 
-    BipedalV1::ActuatorManager actuator_manager{};
-    actuator_manager.initialize();
+
 
     while (true) {
-        // 1. Calculate voltage at the physical pin (0-4095 range for 12-bit)
-        const float pin_voltage = (static_cast<float>(adc.buffer[0]) / 4095.0f) * MAX_REFERENCE_VOLTAGE;
-
-        // 2. Scale back up to the real battery voltage
-        actual_voltage_debug = pin_voltage * VOLTAGE_DIVIDER_RATIO;
-
-        // 3. Map to 0-100% based on your LiPo limits
-        battery_percentage = ((actual_voltage_debug - MIN_BATTERY_VOLTAGE) /
-                              (MAX_BATTERY_VOLTAGE - MIN_BATTERY_VOLTAGE)) * 100.0f;
-
-        // 4. Clamp the values so it doesn't read 110% hot off the charger or -5% when dead
-        if (battery_percentage > 100.0f) battery_percentage = 100.0f;
-        if (battery_percentage < 0.0f) battery_percentage = 0.0f;
-
         // If the I2C2 bus is stuck busy (e.g. slave holding SDA low), perform a hardware GPIO recovery
         // if (I2C2::isBusBusy()) {
         //     I2C2::recoverBus<Pins::B10, Pins::B9, Peripherals::SCL2, Peripherals::SDA2>();
