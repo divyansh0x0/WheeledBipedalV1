@@ -23,6 +23,9 @@ namespace BipedalV1 {
             m_pwm.setDutyCycle(0);
         }
 
+        void setDutyCycle(const float duty_cycle) {
+            m_pwm.setDutyCycle(duty_cycle);
+        }
 
     };
 }

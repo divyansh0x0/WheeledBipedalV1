@@ -21,10 +21,10 @@ SDA1 SCL1 -> MPU6050
 ## Flashing
 Using onboard usb:
 ```
-dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D BipedalV1.bin
+dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D cmake-build-debug/BipedalV1.bin
 ```
 
 Using st-link:
 ```
-st-flash --mass-erase write cmake-build-debug/BipedalV1.bin 0x08000000
+st-flash write cmake-build-debug/BipedalV1.bin 0x08000000
 ```

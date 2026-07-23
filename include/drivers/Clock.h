@@ -105,6 +105,11 @@ namespace STM32F411 {
         static uint32_t millis() {
             return MemoryMap::TIMER5->CNT / 1000;
         }
+
+        static void delayMillis(unsigned int duration) {
+            const uint32_t t1 = millis();
+            while (millis() - t1 < duration) {}
+        }
     };
 }
 #endif //BIPEDALV1_RTC_H

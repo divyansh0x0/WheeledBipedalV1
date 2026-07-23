@@ -9,8 +9,14 @@
 #include "GPIO.h"
 
 namespace STM32F411 {
+    using I2CWriteCallback = void(*)(void* ctx);
+    using I2CReadCallback = void(*)(void* ctx);
+
     template<unsigned int addr>
     class I2C {
+        static inline I2CWriteCallback m_write_callback;
+        static inline I2CReadCallback m_read_callback;
+        static inline void* m_callback_ctx;
         enum I2CFlags : uint16_t {
             START_BIT_GENERATED = (1 << 0), // Start Bit generated
             ADDRESS_SENT = (1 << 1), // Address Sent / Matched
@@ -36,12 +42,12 @@ namespace STM32F411 {
                 // If a NACK is received, or a bus error happens, bail out instantly
                 if (REG->SR1 & (I2CFlags::ACKNOWLEDGE_FAILURE | I2CFlags::BUS_ERROR | I2CFlags::ARBITRATION_LOST)) {
                     REG->SR1 &= ~(I2CFlags::ACKNOWLEDGE_FAILURE | I2CFlags::BUS_ERROR | I2CFlags::ARBITRATION_LOST);
-                    
+
                     // Reset the peripheral on error to avoid bus lockup
                     REG->CR1 |= (1 << 15); // Set SWRST
                     REG->CR1 &= ~(1 << 15); // Clear SWRST
                     enable(); // Re-initialize I2C
-                    
+
                     return false;
                 }
 
@@ -50,7 +56,7 @@ namespace STM32F411 {
                     REG->CR1 |= (1 << 15); // Set SWRST
                     REG->CR1 &= ~(1 << 15); // Clear SWRST
                     enable(); // Re-initialize I2C
-                    
+
                     return false; // Software timeout
                 }
             }
@@ -88,7 +94,8 @@ namespace STM32F411 {
             const uint32_t ccr_val = apb1_freq_hz / (25 * 400'000);
             REG->CCR = (REG->CCR & ~0xCFFFu) | (1 << 15) | (1 << 14) | (ccr_val << 0);
 
-            REG->TRISE = (REG->TRISE & ~0x3Fu) | ((300 * bus_freq_mhz) / 1000 + 1); // set Trise = MAX_RISE_TIME * BUS_FREQ + 1
+            REG->TRISE = (REG->TRISE & ~0x3Fu) | ((300 * bus_freq_mhz) / 1000 + 1);
+            // set Trise = MAX_RISE_TIME * BUS_FREQ + 1
 
             REG->CR1 |= 1u; // set EN to true
         }
@@ -107,7 +114,7 @@ namespace STM32F411 {
             // 2. Configure SCL and SDA as Output
             SclPin::enableOutputMode();
             SdaPin::enableOutputMode();
-            
+
             // Set as Open-Drain using the exposed port_address and pin_index
             const auto scl_port = reinterpret_cast<volatile MemoryMap::GPIORegister *>(SclPin::port_address);
             scl_port->OTYPER |= (1 << SclPin::pin_index);
@@ -150,7 +157,11 @@ namespace STM32F411 {
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             return (REG->SR2 & (1 << 1)) != 0;
         }
-
+        static void setCallbacks(I2CReadCallback read_finished, I2CWriteCallback write_finished, void* ctx){
+            m_read_callback = read_finished;
+            m_write_callback = write_finished;
+            m_callback_ctx = ctx;
+        }
         static bool waitFreeBus() {
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             const uint32_t start = Clock::micros();
@@ -169,7 +180,7 @@ namespace STM32F411 {
 
         static bool writeByte(uint8_t i2c_addr, uint8_t byte) {
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
-            
+
             if (!waitFreeBus()) return false;
 
             // START
@@ -200,19 +211,10 @@ namespace STM32F411 {
         }
 
         static bool writeRegister(uint8_t i2c_addr, uint8_t reg_addr, const uint8_t *data, const uint32_t length,
-                                  MemoryMap::DMAStream *dma_stream = nullptr) {
+                                  bool use_dma = false) {
             if (length == 0) return true;
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
-            if (dma_stream) {
-                dma_stream->setEnabled(false);
-                while (dma_stream->isEnabled()) {
-                };
-                dma_stream->setPeripheralAddress(&REG->DR);
-                dma_stream->setMemoryAddress(data);
-                dma_stream->setDataLength(length);
-                dma_stream->enableMemoryIncrementMode(true);
-                dma_stream->enableTransferCompleteInterrupt(true);
-            }
+
 
             if (!waitFreeBus()) return false;
 
@@ -227,8 +229,18 @@ namespace STM32F411 {
             REG->DR = reg_addr;
             if (!waitEvent(I2CFlags::TRANSFER_REGISTER_EMPTY)) return false;
 
-            if (dma_stream) {
-                // 3. Trigger DMA
+            if (use_dma) {
+                MemoryMap::DMAStream *dma_stream = getDMAStreamWrite();
+
+                dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH1);
+                dma_stream->setEnabled(false);
+                while (dma_stream->isEnabled()) {
+                };
+                dma_stream->setPeripheralAddress(&REG->DR);
+                dma_stream->setMemoryAddress(data);
+                dma_stream->setDataLength(length);
+                dma_stream->enableMemoryIncrementMode(true);
+                dma_stream->enableTransferCompleteInterrupt(true);
                 REG->CR2 |= (1 << 11); // Set DMAEN
                 dma_stream->setEnabled(true); // Enable stream
             } else {
@@ -261,20 +273,78 @@ namespace STM32F411 {
             REG->CR1 |= (1 << 10); // Re-enable ACK for the next transaction
         }
 
+        static constexpr MemoryMap::DMAStream *getDMAStreamRead() {
+            MemoryMap::DMAStream *dma_stream = nullptr;
+            unsigned int stream_id;
+            if constexpr (addr == 0x4000'5400) {
+                stream_id = MemoryMap::DMA1->STREAMS[0].isEnabled() ? 5 : 0;
+                dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+                dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH1);
+            }
+
+            if constexpr (addr == 0x4000'5800) {
+                stream_id = MemoryMap::DMA1->STREAMS[2].isEnabled() ? 3 : 2;
+                dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+                dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH7);
+            }
+            if constexpr (addr == 0x4000'5C00) {
+                stream_id = 2;
+                dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+
+                dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH3);
+            }
+
+            if (dma_stream && dma_stream->isEnabled()) {
+                return nullptr;
+            }
+            if (dma_stream) {
+                InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::Stream>(stream_id), [] {
+                    finishDMARead();
+                    m_read_callback(m_callback_ctx);
+                });
+            }
+            return dma_stream;
+        }
+
+        static constexpr MemoryMap::DMAStream *getDMAStreamWrite() {
+            MemoryMap::DMAStream *dma_stream = nullptr;
+            unsigned int stream_id;
+            if constexpr (addr == 0x4000'5400) {
+                stream_id = MemoryMap::DMA1->STREAMS[6].isEnabled() ? 7 : 6;
+                dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+                dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH1);
+            }
+
+            if constexpr (addr == 0x4000'5800) {
+                stream_id = 7;
+                dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+                dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH7);
+            }
+            if constexpr (addr == 0x4000'5C00) {
+                stream_id = 4;
+                dma_stream = &MemoryMap::DMA1->STREAMS[stream_id];
+
+                dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH3);
+            }
+
+            if (dma_stream && dma_stream->isEnabled()) {
+                return nullptr;
+            }
+            if (dma_stream) {
+                InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::Stream>(stream_id), [] {
+                    finishDMAWrite();
+                    m_write_callback(m_callback_ctx);
+
+                });
+            }
+            return dma_stream;
+        }
+
         static bool readRegister(uint8_t i2c_addr, uint8_t reg_addr, uint8_t *data, const uint32_t length,
-                                 MemoryMap::DMAStream *dma_stream = nullptr) {
+                                 bool use_dma = false) {
             if (length == 0) return true;
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
-            if (dma_stream) {
-                dma_stream->setEnabled(false);
-                while (dma_stream->isEnabled()) {
-                };
-                dma_stream->setPeripheralAddress(&REG->DR);
-                dma_stream->setMemoryAddress(data);
-                dma_stream->setDataLength(length);
-                dma_stream->enableMemoryIncrementMode(true);
-                dma_stream->enableTransferCompleteInterrupt(true);
-            }
+
             if (!waitFreeBus()) return false;
             //Start
             REG->CR1 |= 1 << 8;
@@ -292,8 +362,17 @@ namespace STM32F411 {
             if (!waitEvent(I2CFlags::START_BIT_GENERATED))return false;
             REG->DR = (i2c_addr << 1) | 1u; // Device Addr (For read access we set 0th bit to 1)
             if (!waitEvent(I2CFlags::ADDRESS_SENT))return false;
+            if (use_dma) {
+                MemoryMap::DMAStream *dma_stream = getDMAStreamRead();
+                dma_stream->setEnabled(false);
+                while (dma_stream->isEnabled()) {
+                };
+                dma_stream->setPeripheralAddress(&REG->DR);
+                dma_stream->setMemoryAddress(data);
+                dma_stream->setDataLength(length);
+                dma_stream->enableMemoryIncrementMode(true);
+                dma_stream->enableTransferCompleteInterrupt(true);
 
-            if (dma_stream) {
                 REG->CR1 |= (1 << 10); // Enable ACK so all bytes except last are ACKed
                 REG->CR2 |= (1 << 11); // DMAEN (Enable DMA requests)
                 REG->CR2 |= (1 << 12); // Set LAST bit to send NACK on final byte

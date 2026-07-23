@@ -48,6 +48,10 @@ namespace STM32F411 {
             const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
             return port->ODR & (1 << index) ? HIGH : LOW;
         }
+        static GPIOStatus getInputState() {
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
+            return port->IDR & (1 << index) ? HIGH : LOW;
+        }
         static void enableOutputMode() {
             const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
             port->configurePin(index, MemoryMap::GPIORegister::Mode::Output, MemoryMap::GPIORegister::Pull::None, MemoryMap::GPIORegister::OutputSpeed::High_100MHz,MemoryMap::GPIORegister::OutputType::PushPull);
@@ -68,6 +72,11 @@ namespace STM32F411 {
                                Peripheral::pull,
                                Peripheral::speed,
                                Peripheral::type);
+        }
+
+        static void enableInputMode(MemoryMap::GPIORegister::Pull pull = MemoryMap::GPIORegister::Pull::None) {
+            const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
+            port->configurePin(index,MemoryMap::GPIORegister::Mode::Input, pull);
         }
     };
 
