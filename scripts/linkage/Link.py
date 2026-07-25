@@ -13,6 +13,89 @@ class Constraint:
     def draw(self, __window): pass
 
 
+def get_closest_points(p1, q1, p2, q2):
+    # Calculates the shortest distance between two finite line segments
+    d1 = q1 - p1
+    d2 = q2 - p2
+    r = p1 - p2
+    a = np.dot(d1, d1)
+    e = np.dot(d2, d2)
+    f = np.dot(d2, r)
+    c = np.dot(d1, r)
+    b = np.dot(d1, d2)
+    denom = a * e - b * b
+
+    if denom != 0.0:
+        s = np.clip((b * f - c * e) / denom, 0.0, 1.0)
+    else:
+        s = 0.0
+
+    t = (b * s + f) / e if e != 0.0 else 0.0
+
+    if t < 0.0:
+        t = 0.0
+        s = np.clip(-c / a, 0.0, 1.0) if a != 0.0 else 0.0
+    elif t > 1.0:
+        t = 1.0
+        s = np.clip((b - c) / a, 0.0, 1.0) if a != 0.0 else 0.0
+
+    c1 = p1 + s * d1
+    c2 = p2 + t * d2
+    return c1, c2
+
+
+class CollisionConstraint(Constraint):
+    def __init__(self, body_a: PhysicsObject, body_b: PhysicsObject, thickness: float):
+        self.body_a = body_a
+        self.body_b = body_b
+        # How far apart the centers of the lines need to be to not touch
+        self.thickness = thickness
+
+    def solve(self):
+        # 1. Get endpoints for both links
+        start_a, start_y_a, end_x_a, end_y_a = self.body_a.get_points()
+        start_b, start_y_b, end_x_b, end_y_b = self.body_b.get_points()
+
+        p1 = np.array([start_a, start_y_a])
+        q1 = np.array([end_x_a, end_y_a])
+        p2 = np.array([start_b, start_y_b])
+        q2 = np.array([end_x_b, end_y_b])
+
+        # 2. Find the absolute closest points between the two links
+        c1, c2 = get_closest_points(p1, q1, p2, q2)
+
+        # 3. Check distance
+        dist_vec = c1 - c2
+        dist = np.linalg.norm(dist_vec)
+
+        if dist < self.thickness:
+            # They are colliding! Calculate push-out normal
+            if dist < 1e-5:
+                # Edge Case: Perfectly overlapping lines. Push orthogonally.
+                line_vec = q1 - p1
+                normal = np.array([-line_vec[1], line_vec[0]])
+                n_len = np.linalg.norm(normal)
+                if n_len > 0: normal = normal / n_len
+            else:
+                normal = dist_vec / dist
+
+            penetration = self.thickness - dist
+
+            # 50/50 split to push bodies apart
+            correction = normal * (penetration * 0.5)
+
+            r_a = c1 - self.body_a.position
+            r_b = c2 - self.body_b.position
+
+            # Apply Translation & Torque to Body A
+            self.body_a.position += correction
+            torque_a = r_a[0] * correction[1] - r_a[1] * correction[0]
+            self.body_a.angular_position += torque_a * 0.05
+
+            # Apply Translation & Torque to Body B
+            self.body_b.position -= correction
+            torque_b = r_b[0] * (-correction[1]) - r_b[1] * (-correction[0])
+            self.body_b.angular_position += torque_b * 0.05
 class FixedPivot(Constraint):
     def __init__(self, body_a: PhysicsObject, anchor_ratio_a, fixed_anchor):
         self.body_a = body_a
@@ -195,13 +278,17 @@ class Link(PhysicsObject):
             return distance < 10
 
         return False
-# Returns 0.0 (start), 1.0 (end), or None based on mouse position
+
+
     def get_node_at(self, x, y):
         if self.is_intersecting_start(x, y):
             return 0.0
         if self.is_intersecting_end(x, y):
             return 1.0
+        if self.is_intersecting_center(x, y):
+            return 'center'
         return None
+
 
     # Returns the global (x, y) NumPy array of the requested ratio
     def get_global_position(self, ratio):
@@ -210,4 +297,6 @@ class Link(PhysicsObject):
             return np.array([start_x, start_y])
         elif ratio == 1.0:
             return np.array([end_x, end_y])
+        elif ratio == 'center':
+            return np.array([(start_x + end_x) / 2, (start_y + end_y) / 2])
         return None
