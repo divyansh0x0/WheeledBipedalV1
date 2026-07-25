@@ -1,4 +1,5 @@
 import time
+import json
 import numpy as np
 import pygame
 from pygame.event import Event
@@ -77,7 +78,9 @@ class World:
         print("C         : Make 2 connected linkages completely Collinear")
         print("F         : Fix selected endpoint to the wall")
         print("M         : Add Motor (Select 1 endpoint + bodies to spin)")
-        print("X / DEL   : Delete selected object and attached constraints")
+        print("X / DEL   : Delete selected object")
+        print("S         : Quick Save Structure")
+        print("O         : Quick Load Save")
         print("=" * 40)
 
     def add(self, physics_object: Link):
@@ -112,7 +115,6 @@ class World:
             if time.time_ns() - self.__last_entity_add_time > 1e9 * 0.5:
                 length = simpledialog.askfloat("Linkage Length", "Enter linkage length:",
                                                initialvalue=100.0, minvalue=10.0, maxvalue=1000.0, parent=self.tk_root)
-                # FIX: Force Tkinter to destroy the popup visually when finished
                 self.tk_root.update()
 
                 if length is not None:
@@ -141,7 +143,6 @@ class World:
                         current_time - self.last_click_time) < self.double_click_time:
                     self.mouse_constraint = None
                     self.link_to_edit = clicked_link
-
                     self.last_click_time = 0
                     self.last_clicked_link = None
                 else:
@@ -156,7 +157,6 @@ class World:
                 new_len = simpledialog.askfloat("Edit Length", "Enter new linkage length:",
                                                 initialvalue=self.link_to_edit.length, minvalue=10.0, maxvalue=1000.0,
                                                 parent=self.tk_root)
-                # FIX: Force Tkinter to destroy the popup visually when finished
                 self.tk_root.update()
 
                 if new_len is not None:
@@ -183,6 +183,111 @@ class World:
                 self.selected_nodes.clear()
 
         if event.type == pygame.KEYDOWN:
+
+            # --- QUICK SAVE SYSTEM ---
+            if event.key == pygame.K_s:
+                export_data = {"linkages": [], "joints": []}
+                link_map = {link: i for i, link in enumerate(self.__linkages)}
+
+                for i, link in enumerate(self.__linkages):
+                    export_data["linkages"].append({
+                        "length": link.length,
+                        "position": [link.position[0], link.position[1]],
+                        "angle": link.angular_position
+                    })
+
+                for j in self.__joints:
+                    if isinstance(j, Pivot):
+                        export_data["joints"].append({
+                            "type": "Pivot",
+                            "link_a": link_map.get(j.body_a, -1),
+                            "ratio_a": j.ratio_a,
+                            "link_b": link_map.get(j.body_b, -1),
+                            "ratio_b": j.ratio_b
+                        })
+                    elif isinstance(j, FixedPivot):
+                        export_data["joints"].append({
+                            "type": "FixedPivot",
+                            "link_a": link_map.get(j.body_a, -1),
+                            "ratio_a": j.ratio_a,
+                            "fixed_anchor": [j.fixed_anchor[0], j.fixed_anchor[1]]
+                        })
+                    elif isinstance(j, CollinearConstraint):
+                        export_data["joints"].append({
+                            "type": "CollinearConstraint",
+                            "link_a": link_map.get(j.body_a, -1),
+                            "link_b": link_map.get(j.body_b, -1)
+                        })
+                    elif isinstance(j, ServoConstraint):
+                        export_data["joints"].append({
+                            "type": "ServoConstraint",
+                            "rotors": [link_map.get(r, -1) for r in j.rotors if link_map.get(r, -1) != -1],
+                            "stators": [link_map.get(s, -1) for s in j.stators if link_map.get(s, -1) != -1],
+                            "base_ratio": j.base_ratio,
+                            "target_angle": j.target_angle
+                        })
+
+                with open("quick_save.json", "w") as f:
+                    json.dump(export_data, f, indent=4)
+                print("SUCCESS: Quick Save completed!")
+
+            # --- QUICK LOAD SYSTEM ---
+            if event.key == pygame.K_o:
+                try:
+                    with open("quick_save.json", "r") as f:
+                        import_data = json.load(f)
+
+                    # Wipe the current slate clean
+                    self.__linkages.clear()
+                    self.__joints.clear()
+                    self.selected_nodes.clear()
+                    self.sliders.clear()
+                    self.mouse_constraint = None
+
+                    # Reconstruct Linkages
+                    for l_data in import_data.get("linkages", []):
+                        link = Link(length=l_data["length"])
+                        link.position = np.array(l_data["position"], dtype=float)
+                        link.angular_position = float(l_data["angle"])
+                        self.__linkages.append(link)
+
+                    # Reconstruct Joints & Constraints
+                    for j_data in import_data.get("joints", []):
+                        j_type = j_data.get("type")
+                        if j_type == "Pivot":
+                            l_a = self.__linkages[j_data["link_a"]]
+                            l_b = self.__linkages[j_data["link_b"]]
+                            self.__joints.append(Pivot(l_a, l_b, j_data["ratio_a"], j_data["ratio_b"]))
+
+                        elif j_type == "FixedPivot":
+                            l_a = self.__linkages[j_data["link_a"]]
+                            self.__joints.append(FixedPivot(l_a, j_data["ratio_a"], j_data["fixed_anchor"]))
+
+                        elif j_type == "CollinearConstraint":
+                            l_a = self.__linkages[j_data["link_a"]]
+                            l_b = self.__linkages[j_data["link_b"]]
+                            self.__joints.append(CollinearConstraint(l_a, l_b))
+
+                        elif j_type == "ServoConstraint":
+                            rotors = [self.__linkages[r] for r in j_data["rotors"]]
+                            stators = [self.__linkages[s] for s in j_data["stators"]]
+                            new_servo = ServoConstraint(rotors, stators, j_data["base_ratio"])
+                            new_servo.target_angle = j_data["target_angle"]
+                            self.__joints.append(new_servo)
+
+                            # Recreate UI Slider
+                            slider = SimpleSlider(new_servo)
+                            slider.val = j_data["target_angle"]
+                            self.sliders.append(slider)
+
+                    print("SUCCESS: Quick Load completed!")
+                except FileNotFoundError:
+                    print("WARNING: No quick save file found (quick_save.json).")
+                except Exception as e:
+                    print(f"WARNING: Failed to load save file: {e}")
+
+            if event.key == pygame.K_p:  # Keep generic debug JSON for diagnostics
+                pass
 
             if event.key == pygame.K_j:
                 endpoints = [n for n in self.selected_nodes if n[1] != 'center']

@@ -1,0 +1,126 @@
+{
+    "linkages": [
+        {
+            "id": 0,
+            "length": 30,
+            "position": [
+                317.53017910361075,
+                212.53502433111677
+            ],
+            "angle": -243816.95370466926
+        },
+        {
+            "id": 1,
+            "length": 120,
+            "position": [
+                288.0000000121671,
+                330.00000003004493
+            ],
+            "angle": -243827.30796274426
+        },
+        {
+            "id": 2,
+            "length": 150,
+            "position": [
+                308.51890298859433,
+                343.9607264990342
+            ],
+            "angle": -243735.09899375463
+        },
+        {
+            "id": 3,
+            "length": 90.0,
+            "position": [
+                410.210243462157,
+                285.66778655144725
+            ],
+            "angle": -243842.44125691778
+        },
+        {
+            "id": 4,
+            "length": 113.3,
+            "position": [
+                356.7036959174605,
+                331.7464605300067
+            ],
+            "angle": -243819.81910782785
+        },
+        {
+            "id": 5,
+            "length": 60,
+            "position": [
+                318.8657580908063,
+                181.94654633438037
+            ],
+            "angle": -241162.71586197903
+        }
+    ],
+    "joints": [
+        {
+            "type": "Pivot",
+            "link_a": 4,
+            "ratio_a": 1.0,
+            "link_b": 0,
+            "ratio_b": 0.0
+        },
+        {
+            "type": "Pivot",
+            "link_a": 2,
+            "ratio_a": 1.0,
+            "link_b": 0,
+            "ratio_b": 0.0
+        },
+        {
+            "type": "Pivot",
+            "link_a": 1,
+            "ratio_a": 0.0,
+            "link_b": 2,
+            "ratio_b": 0.0
+        },
+        {
+            "type": "Pivot",
+            "link_a": 5,
+            "ratio_a": 0.0,
+            "link_b": 0,
+            "ratio_b": 1.0
+        },
+        {
+            "type": "CollinearConstraint",
+            "link_a": 4,
+            "link_b": 0
+        },
+        {
+            "type": "Pivot",
+            "link_a": 5,
+            "ratio_a": 1.0,
+            "link_b": 3,
+            "ratio_b": 1.0
+        },
+        {
+            "type": "FixedPivot",
+            "link_a": 1,
+            "ratio_a": 0.0,
+            "fixed_anchor": [
+                288.0000000121671,
+                330.00000003004493
+            ]
+        },
+        {
+            "type": "Pivot",
+            "link_a": 1,
+            "ratio_a": 1.0,
+            "link_b": 3,
+            "ratio_b": 0.0
+        },
+        {
+            "type": "ServoConstraint",
+            "rotors": [
+                2,
+                1
+            ],
+            "stators": [],
+            "base_ratio": 0.0,
+            "target_angle": 1.8000000000000114
+        }
+    ]
+}

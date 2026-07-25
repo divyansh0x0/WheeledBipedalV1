@@ -43,31 +43,27 @@ class Constraint:
     def solve(self): pass
 
 
-# --- NEW: Collinear (Rigid) Constraint ---
 class CollinearConstraint(Constraint):
     def __init__(self, body_a: PhysicsObject, body_b: PhysicsObject):
         self.body_a = body_a
         self.body_b = body_b
 
-        # Determine if they are closer to 0 degrees or 180 degrees offset
         diff = (self.body_b.angular_position - self.body_a.angular_position) % 360
         self.target_diff = 180 if 90 < diff < 270 else 0
 
-        # Snap them into a straight line immediately upon creation
         error = (diff - self.target_diff + 180) % 360 - 180
         self.body_a.angular_position += error * 0.5
         self.body_b.angular_position -= error * 0.5
 
     def solve(self):
-        # Continuously lock their angles together
         diff = (self.body_b.angular_position - self.body_a.angular_position) % 360
         error = (diff - self.target_diff + 180) % 360 - 180
 
-        self.body_a.angular_position += error * 0.5
-        self.body_b.angular_position -= error * 0.5
+        step = np.clip(error * 0.3, -10.0, 10.0)
+        self.body_a.angular_position += step * 0.5
+        self.body_b.angular_position -= step * 0.5
 
     def draw(self, __window):
-        # Draw a thick purple line indicating a rigid bond
         c1 = self.body_a.get_global_position('center')
         c2 = self.body_b.get_global_position('center')
         px1, py1 = int(c1[0]), int(c1[1])
@@ -79,7 +75,7 @@ class FixedPivot(Constraint):
     def __init__(self, body_a: PhysicsObject, anchor_ratio_a, fixed_anchor):
         self.body_a = body_a
         self.ratio_a = anchor_ratio_a
-        self.fixed_anchor = fixed_anchor
+        self.fixed_anchor = np.array(fixed_anchor, dtype=float)
 
     def get_global_anchors(self):
         theta_a = np.radians(self.body_a.angular_position)
@@ -90,14 +86,19 @@ class FixedPivot(Constraint):
     def solve(self):
         global_a = self.get_global_anchors()
         error = self.fixed_anchor - global_a
+
+        # 1. Direct translation correction
+        self.body_a.position += error
+
+        # 2. Angular correction normalized by arm length squared
         r_a = global_a - self.body_a.position
+        r_len_sq = np.dot(r_a, r_a)
 
-        torque = r_a[0] * error[1] - r_a[1] * error[0]
-        self.body_a.angular_position += torque * 0.01
-
-        global_a_new = self.get_global_anchors()
-        error_new = self.fixed_anchor - global_a_new
-        self.body_a.position += error_new
+        if r_len_sq > 1e-4:
+            cross_prod = r_a[0] * error[1] - r_a[1] * error[0]
+            d_theta_deg = np.degrees(cross_prod / r_len_sq)
+            d_theta_deg = np.clip(d_theta_deg, -5.0, 5.0)
+            self.body_a.angular_position += d_theta_deg * 0.2
 
     def draw(self, __window):
         global_a = self.get_global_anchors()
@@ -126,23 +127,27 @@ class Pivot(Constraint):
     def solve(self):
         global_a, global_b = self.get_global_anchors()
         error = global_b - global_a
+
+        # Positional relaxation (50/50)
+        self.body_a.position += error * 0.5
+        self.body_b.position -= error * 0.5
+
+        # Angular relaxation normalized by arm length squared
         r_a = global_a - self.body_a.position
         r_b = global_b - self.body_b.position
 
-        correction_a = error * 0.5
-        correction_b = -error * 0.5
+        r_a_sq = np.dot(r_a, r_a)
+        r_b_sq = np.dot(r_b, r_b)
 
-        torque_a = r_a[0] * correction_a[1] - r_a[1] * correction_a[0]
-        self.body_a.angular_position += torque_a * 0.01
+        if r_a_sq > 1e-4:
+            cross_a = r_a[0] * error[1] - r_a[1] * error[0]
+            d_theta_a = np.clip(np.degrees(cross_a / r_a_sq), -5.0, 5.0)
+            self.body_a.angular_position += d_theta_a * 0.1
 
-        torque_b = r_b[0] * correction_b[1] - r_b[1] * correction_b[0]
-        self.body_b.angular_position += torque_b * 0.01
-
-        global_a_new, global_b_new = self.get_global_anchors()
-        error_new = global_b_new - global_a_new
-
-        self.body_a.position += error_new * 0.5
-        self.body_b.position -= error_new * 0.5
+        if r_b_sq > 1e-4:
+            cross_b = r_b[0] * (-error[1]) - r_b[1] * (-error[0])
+            d_theta_b = np.clip(np.degrees(cross_b / r_b_sq), -5.0, 5.0)
+            self.body_b.angular_position += d_theta_b * 0.1
 
     def draw(self, __window):
         global_a, global_b = self.get_global_anchors()
@@ -160,7 +165,6 @@ class MouseConstraint(Constraint):
     def get_global_anchor(self):
         theta_a = np.radians(self.body_a.angular_position)
         rot_a = np.array([[np.cos(theta_a), -np.sin(theta_a)], [np.sin(theta_a), np.cos(theta_a)]])
-
         numeric_ratio = 0.5 if self.ratio_a == 'center' else self.ratio_a
         local_a = np.array([self.body_a.length * numeric_ratio, 0.0])
         return self.body_a.position + rot_a @ local_a
@@ -169,15 +173,15 @@ class MouseConstraint(Constraint):
         global_a = self.get_global_anchor()
         mouse_pos = np.array(pygame.mouse.get_pos(), dtype=float)
         error = mouse_pos - global_a
+
+        self.body_a.position += error * 0.1
+
         r_a = global_a - self.body_a.position
-        correction = error * 0.1
-
-        torque = r_a[0] * correction[1] - r_a[1] * correction[0]
-        self.body_a.angular_position += torque * 0.01
-
-        global_a_new = self.get_global_anchor()
-        error_new = mouse_pos - global_a_new
-        self.body_a.position += error_new * 0.1
+        r_len_sq = np.dot(r_a, r_a)
+        if r_len_sq > 1e-4:
+            cross_prod = r_a[0] * error[1] - r_a[1] * error[0]
+            d_theta = np.clip(np.degrees(cross_prod / r_len_sq), -5.0, 5.0)
+            self.body_a.angular_position += d_theta * 0.05
 
     def draw(self, __window):
         global_a = self.get_global_anchor()
@@ -215,16 +219,8 @@ class CollisionConstraint(Constraint):
             penetration = self.thickness - dist
             correction = normal * (penetration * 0.5)
 
-            r_a = c1 - self.body_a.position
-            r_b = c2 - self.body_b.position
-
             self.body_a.position += correction
-            torque_a = r_a[0] * correction[1] - r_a[1] * correction[0]
-            self.body_a.angular_position += torque_a * 0.05
-
             self.body_b.position -= correction
-            torque_b = r_b[0] * (-correction[1]) - r_b[1] * (-correction[0])
-            self.body_b.angular_position += torque_b * 0.05
 
 
 class ServoConstraint(Constraint):
@@ -269,13 +265,16 @@ class ServoConstraint(Constraint):
             current_diff = self._norm(self.base_rotor.angular_position - self.base_stator.angular_position)
             desired_diff = self._norm(self.initial_angle_diff + self.target_angle)
             error = self._norm(desired_diff - current_diff)
-            self.base_rotor.angular_position += error * 0.1
-            self.base_stator.angular_position -= error * 0.1
+
+            step = np.clip(error * 0.2, -5.0, 5.0)
+            self.base_rotor.angular_position += step * 0.5
+            self.base_stator.angular_position -= step * 0.5
         else:
             current_ang = self._norm(self.base_rotor.angular_position)
             desired_ang = self._norm(self.initial_angle_diff + self.target_angle)
             error = self._norm(desired_ang - current_ang)
-            self.base_rotor.angular_position += error * 0.1
+            step = np.clip(error * 0.2, -5.0, 5.0)
+            self.base_rotor.angular_position += step
 
     def draw(self, __window):
         global_pos = self.get_global_anchor()
