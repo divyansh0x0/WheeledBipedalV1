@@ -5,7 +5,8 @@ from pygame.event import Event
 import tkinter as tk
 from tkinter import simpledialog
 
-from linkage.Link import Link, Pivot, Constraint, FixedPivot, MouseConstraint, CollisionConstraint, ServoConstraint
+from linkage.Link import Link, Pivot, Constraint, FixedPivot, MouseConstraint, CollisionConstraint, ServoConstraint, \
+    CollinearConstraint
 from linkage.PhysicsObject import PhysicsObject
 
 
@@ -61,11 +62,19 @@ class World:
         self.mouse_constraint = None
         self.sliders: list[SimpleSlider] = []
 
+        # Double-Click Tracking
+        self.double_click_time = 300
+        self.last_click_time = 0
+        self.last_clicked_link = None
+        self.link_to_edit = None
+
         print("=" * 40)
         print("⚙️ LINKAGE ENGINE CONTROLS ⚙️")
         print("L         : Spawn a new link")
-        print("RIGHT-CLICK: Select/Deselect endpoints or body")
+        print("L-CLICK   : Drag object (Double-click to edit length!)")
+        print("R-CLICK   : Select/Deselect endpoints or body")
         print("J         : Join 2 selected endpoints together (Pivot)")
+        print("C         : Make 2 connected linkages completely Collinear")
         print("F         : Fix selected endpoint to the wall")
         print("M         : Add Motor (Select 1 endpoint + bodies to spin)")
         print("X / DEL   : Delete selected object and attached constraints")
@@ -103,6 +112,9 @@ class World:
             if time.time_ns() - self.__last_entity_add_time > 1e9 * 0.5:
                 length = simpledialog.askfloat("Linkage Length", "Enter linkage length:",
                                                initialvalue=100.0, minvalue=10.0, maxvalue=1000.0, parent=self.tk_root)
+                # FIX: Force Tkinter to destroy the popup visually when finished
+                self.tk_root.update()
+
                 if length is not None:
                     link = Link(length=length)
                     x, y = pygame.mouse.get_pos()
@@ -112,14 +124,46 @@ class World:
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not slider_interacted:
             x, y = pygame.mouse.get_pos()
+            clicked_link = None
+            clicked_node = None
+
             for link in self.__linkages:
                 node = link.get_node_at(x, y)
                 if node is not None:
-                    self.mouse_constraint = MouseConstraint(link, node)
+                    clicked_link = link
+                    clicked_node = node
                     break
+
+            if clicked_link is not None:
+                current_time = pygame.time.get_ticks()
+
+                if clicked_link == self.last_clicked_link and (
+                        current_time - self.last_click_time) < self.double_click_time:
+                    self.mouse_constraint = None
+                    self.link_to_edit = clicked_link
+
+                    self.last_click_time = 0
+                    self.last_clicked_link = None
+                else:
+                    self.last_click_time = current_time
+                    self.last_clicked_link = clicked_link
+                    self.mouse_constraint = MouseConstraint(clicked_link, clicked_node)
 
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.mouse_constraint = None
+
+            if self.link_to_edit is not None:
+                new_len = simpledialog.askfloat("Edit Length", "Enter new linkage length:",
+                                                initialvalue=self.link_to_edit.length, minvalue=10.0, maxvalue=1000.0,
+                                                parent=self.tk_root)
+                # FIX: Force Tkinter to destroy the popup visually when finished
+                self.tk_root.update()
+
+                if new_len is not None:
+                    self.link_to_edit.length = new_len
+                    print(f"SUCCESS: Length updated to {new_len}")
+
+                self.link_to_edit = None
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             x, y = pygame.mouse.get_pos()
@@ -140,7 +184,6 @@ class World:
 
         if event.type == pygame.KEYDOWN:
 
-            # --- JOIN LOGIC ---
             if event.key == pygame.K_j:
                 endpoints = [n for n in self.selected_nodes if n[1] != 'center']
                 if len(endpoints) == 2:
@@ -153,7 +196,31 @@ class World:
                 else:
                     print("WARNING: Select exactly 2 endpoints to join.")
 
-            # --- FIXED WALL LOGIC ---
+            if event.key == pygame.K_c:
+                body_nodes = [n for n in self.selected_nodes if n[1] == 'center']
+                if len(body_nodes) == 2:
+                    link1, _ = body_nodes[0]
+                    link2, _ = body_nodes[1]
+
+                    if link1 != link2:
+                        are_connected = False
+                        for j in self.__joints:
+                            if isinstance(j, Pivot):
+                                if (j.body_a == link1 and j.body_b == link2) or (
+                                        j.body_a == link2 and j.body_b == link1):
+                                    are_connected = True
+                                    break
+
+                        if are_connected:
+                            self.__joints.append(CollinearConstraint(link1, link2))
+                            print("SUCCESS: Links made permanently collinear!")
+                            self.selected_nodes.clear()
+                        else:
+                            print(
+                                "WARNING: Links must be connected by a Pivot joint first (Select endpoints & press J).")
+                else:
+                    print("WARNING: Select exactly 2 link bodies (centers) to make them collinear.")
+
             if event.key == pygame.K_f:
                 for selected_link, ratio in self.selected_nodes:
                     if ratio != 'center':
@@ -162,34 +229,27 @@ class World:
                         print("SUCCESS: Fixed pivot added.")
                 self.selected_nodes.clear()
 
-            # --- NEW MOTOR LOGIC (Separate Joint from Bodies) ---
             if event.key == pygame.K_m:
-                # 1. Sort selections into Joint coordinates vs Link Bodies
                 pivot_nodes = [n for n in self.selected_nodes if n[1] != 'center']
                 rotor_nodes = [n for n in self.selected_nodes if n[1] == 'center']
 
-                # 2. Check if the user specified WHERE to put the motor
                 if not pivot_nodes:
                     print("WARNING: Select the Joint (Endpoint) to place the motor on.")
                     return
 
-                # Define the pivot point
                 base_pivot_link, base_pivot_ratio = pivot_nodes[0]
                 pivot_pos = base_pivot_link.get_global_position(base_pivot_ratio)
 
-                # Ensure all selected endpoints are at the same physical coordinate
                 for link, ratio in pivot_nodes:
                     if np.linalg.norm(link.get_global_position(ratio) - pivot_pos) > 25:
                         print(
                             "WARNING: You selected multiple endpoints that are not touching. Clear selections and try again.")
                         return
 
-                # 3. Check if the user specified WHAT should spin
                 if not rotor_nodes:
                     print("WARNING: Select the bodies (centers) of the linkages you want to spin.")
                     return
 
-                # 4. Extract the spinning linkages (Rotors)
                 rotors = []
                 for link, _ in rotor_nodes:
                     if np.linalg.norm(link.get_global_position(0.0) - pivot_pos) <= 25 or \
@@ -202,7 +262,6 @@ class World:
                     self.selected_nodes.clear()
                     return
 
-                # 5. Extract the base linkages (Stators)
                 stators = []
                 for link in self.__linkages:
                     if link in rotors: continue
@@ -210,13 +269,11 @@ class World:
                             np.linalg.norm(link.get_global_position(1.0) - pivot_pos) <= 25:
                         stators.append(link)
 
-                # Find the math ratio of the first rotor for the constraint to track
                 base_rotor = rotors[0]
                 dist0 = np.linalg.norm(base_rotor.get_global_position(0.0) - pivot_pos)
                 dist1 = np.linalg.norm(base_rotor.get_global_position(1.0) - pivot_pos)
                 actual_base_ratio = 0.0 if dist0 < dist1 else 1.0
 
-                # Append the motor
                 new_servo = ServoConstraint(rotors, stators, actual_base_ratio)
                 self.__joints.append(new_servo)
                 self.sliders.append(SimpleSlider(new_servo))
@@ -224,7 +281,6 @@ class World:
                 print(f"SUCCESS: Motor Added! Spinning Links: {len(rotors)} | Base Links: {len(stators)}")
                 self.selected_nodes.clear()
 
-            # --- SAFELY DELETE MOTORS AND JOINTS ---
             if event.key in (pygame.K_x, pygame.K_DELETE, pygame.K_BACKSPACE):
                 for selected_link, ratio in self.selected_nodes:
                     if ratio == 'center':
@@ -305,8 +361,12 @@ class World:
         iterations = 30
         for _ in range(iterations):
             if self.mouse_constraint: self.mouse_constraint.solve()
+
             for joint in self.__joints:
                 if isinstance(joint, Pivot): joint.solve()
+
+            for joint in self.__joints:
+                if isinstance(joint, CollinearConstraint): joint.solve()
 
             for slider in self.sliders:
                 slider.servo.set_target_angle(slider.val)

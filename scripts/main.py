@@ -3,7 +3,8 @@ import pygame
 from linkage import World, Link
 
 world = World.World()
-world.add(Link.Link(150))
+world.add(Link.Link(30))
+world.add(Link.Link(120))
 world.add(Link.Link(150))
 world.add(Link.Link(80))
 world.add(Link.Link(113.3))

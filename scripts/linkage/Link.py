@@ -43,6 +43,38 @@ class Constraint:
     def solve(self): pass
 
 
+# --- NEW: Collinear (Rigid) Constraint ---
+class CollinearConstraint(Constraint):
+    def __init__(self, body_a: PhysicsObject, body_b: PhysicsObject):
+        self.body_a = body_a
+        self.body_b = body_b
+
+        # Determine if they are closer to 0 degrees or 180 degrees offset
+        diff = (self.body_b.angular_position - self.body_a.angular_position) % 360
+        self.target_diff = 180 if 90 < diff < 270 else 0
+
+        # Snap them into a straight line immediately upon creation
+        error = (diff - self.target_diff + 180) % 360 - 180
+        self.body_a.angular_position += error * 0.5
+        self.body_b.angular_position -= error * 0.5
+
+    def solve(self):
+        # Continuously lock their angles together
+        diff = (self.body_b.angular_position - self.body_a.angular_position) % 360
+        error = (diff - self.target_diff + 180) % 360 - 180
+
+        self.body_a.angular_position += error * 0.5
+        self.body_b.angular_position -= error * 0.5
+
+    def draw(self, __window):
+        # Draw a thick purple line indicating a rigid bond
+        c1 = self.body_a.get_global_position('center')
+        c2 = self.body_b.get_global_position('center')
+        px1, py1 = int(c1[0]), int(c1[1])
+        px2, py2 = int(c2[0]), int(c2[1])
+        pygame.draw.line(__window, (138, 43, 226), (px1, py1), (px2, py2), 4)
+
+
 class FixedPivot(Constraint):
     def __init__(self, body_a: PhysicsObject, anchor_ratio_a, fixed_anchor):
         self.body_a = body_a
@@ -129,7 +161,6 @@ class MouseConstraint(Constraint):
         theta_a = np.radians(self.body_a.angular_position)
         rot_a = np.array([[np.cos(theta_a), -np.sin(theta_a)], [np.sin(theta_a), np.cos(theta_a)]])
 
-        # Translates a 'center' body click into a rigid mathematical ratio
         numeric_ratio = 0.5 if self.ratio_a == 'center' else self.ratio_a
         local_a = np.array([self.body_a.length * numeric_ratio, 0.0])
         return self.body_a.position + rot_a @ local_a
@@ -203,7 +234,6 @@ class ServoConstraint(Constraint):
         self.base_ratio = base_ratio
 
         self.base_rotor = rotors[0]
-        # Store relative offsets so all rotors maintain exact formation
         self.rotor_offsets = [self._norm(r.angular_position - self.base_rotor.angular_position) for r in rotors]
 
         if stators:
@@ -228,7 +258,6 @@ class ServoConstraint(Constraint):
         return self.base_rotor.position + rot @ local
 
     def solve(self):
-        # 1. Lock all rotors to rotate strictly as one unit
         for i in range(1, len(self.rotors)):
             rotor = self.rotors[i]
             current_diff = self._norm(rotor.angular_position - self.base_rotor.angular_position)
@@ -236,7 +265,6 @@ class ServoConstraint(Constraint):
             rotor.angular_position += error * 0.5
             self.base_rotor.angular_position -= error * 0.5
 
-        # 2. Apply opposing torque between the Rotors and the Stators
         if self.base_stator:
             current_diff = self._norm(self.base_rotor.angular_position - self.base_stator.angular_position)
             desired_diff = self._norm(self.initial_angle_diff + self.target_angle)
@@ -279,13 +307,13 @@ class Link(PhysicsObject):
         start_x, start_y, _, _ = self.get_points()
         mouse = np.array([x, y])
         start = np.array([start_x, start_y])
-        return np.linalg.norm(mouse - start) <= 20
+        return np.linalg.norm(mouse - start) <= 10
 
     def is_intersecting_end(self, x, y):
         _, _, end_x, end_y = self.get_points()
         mouse = np.array([x, y])
         end = np.array([end_x, end_y])
-        return np.linalg.norm(mouse - end) <= 20
+        return np.linalg.norm(mouse - end) <= 10
 
     def is_intersecting_center(self, x, y):
         start_x, start_y, end_x, end_y = self.get_points()
