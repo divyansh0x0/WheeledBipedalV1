@@ -62,13 +62,12 @@ class World:
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.mouse_constraint = None
 
-            # Handle Object Events (If you still need this for PhysicsObject)
         for obj in self.__linkages:
             obj.event_handler()
 
-        # --- SELECTION LOGIC (Un-indented!) ---
+        # --- SELECTION LOGIC ---
         # 1. Handle Right-Click Selection
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:  # RIGHT CLICK
             x, y = pygame.mouse.get_pos()
             found_selection = False
             for link in self.__linkages:
@@ -76,9 +75,12 @@ class World:
                 if node_ratio is not None:
                     self.selected_node = (link, node_ratio)
                     found_selection = True
+                    print(f"SUCCESS: Selected node at ratio {node_ratio}")
                     break
+
             if not found_selection:
                 self.selected_node = None
+                print("Deselected")
 
         # 2. Handle Applying Properties to the Selected Node
         if event.type == pygame.KEYDOWN:
@@ -89,11 +91,13 @@ class World:
                     global_pos = selected_link.get_global_position(ratio)
                     new_fixed_pivot = FixedPivot(selected_link, ratio, global_pos)
                     self.__joints.append(new_fixed_pivot)
-                    print(f"Fixed Pivot added at ratio {ratio}")
+                    print(f"SUCCESS: Fixed Pivot permanently added at {global_pos}!")
+
+                    # Clear selection after applying
+                    self.selected_node = None
 
                 if event.key == pygame.K_m:
                     print(f"Motor applied to link")
-
     def add(self, physics_object: Link) -> None:
         self.__linkages.append(physics_object)
 
@@ -130,12 +134,23 @@ class World:
                     self.add_joint(link1, link2, 1.0, 0.0)
 
         # --- SOLVER LOOP (Un-indented so it only runs once per frame!) ---
-        iterations = 30
-        for _ in range(iterations):
-            for joint in self.__joints:
-                joint.solve()
-            if self.mouse_constraint:
-                self.mouse_constraint.solve()
+                # --- SOLVER LOOP ---
+            iterations = 30
+            for _ in range(iterations):
+
+                # 1. Soft Constraints (External forces like the mouse pull run FIRST)
+                if self.mouse_constraint:
+                    self.mouse_constraint.solve()
+
+                # 2. Structural Constraints (Standard pivot joints connecting bodies run SECOND)
+                for joint in self.__joints:
+                    if isinstance(joint, Pivot):
+                        joint.solve()
+
+                # 3. Absolute Constraints (Immovable walls MUST run LAST so nothing overrides them)
+                for joint in self.__joints:
+                    if isinstance(joint, FixedPivot):
+                        joint.solve()
 
     def __draw(self, dt) -> None:
         for obj in self.__linkages:
@@ -144,14 +159,19 @@ class World:
         for joint in self.__joints:
             joint.draw(self.__window)
 
-        # Draw the dragging line!
         if self.mouse_constraint:
             self.mouse_constraint.draw(self.__window)
 
+        # Draw the Selection Highlight
         if self.selected_node is not None:
             selected_link, ratio = self.selected_node
             pos = selected_link.get_global_position(ratio)
-            pygame.draw.circle(self.__window, (0, 255, 0), pos, 14, 3)
+
+            # THE FIX: Safely convert numpy array to integer tuple for Pygame
+            px, py = int(pos[0]), int(pos[1])
+
+            # Draw a bright, thick Green circle
+            pygame.draw.circle(self.__window, (0, 255, 0), (px, py), 16, 4)
 
     def add_joint(self, link1, link2, param, param1):
         self.__joints.append(Pivot(link1, link2, param, param1))
