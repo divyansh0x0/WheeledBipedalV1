@@ -14,6 +14,9 @@ class Constraint:
     def draw(self, __window):
         pass
 
+    def solve(self):
+        pass
+
 
 class FixedPivot(Constraint):
     def __init__(self, body_a: PhysicsObject, anchor_ratio_a, fixed_anchor):
@@ -27,79 +30,73 @@ class FixedPivot(Constraint):
         local_a = np.array([self.body_a.length * self.ratio_a, 0.0])
         return self.body_a.position + rot_a @ local_a
 
-    def get_error(self):
-        return self.get_global_anchors() - self.fixed_anchor
-
     def solve(self):
-        error = self.get_error()
         global_a = self.get_global_anchors()
 
-        # Vector from body origin to the joint
+        # Vector pointing FROM the anchor TO the fixed wall point
+        error = self.fixed_anchor - global_a
         r_a = global_a - self.body_a.position
 
-        # 1. Translate
-        self.body_a.position -= error * 0.8
+        # 1. Translate: Apply 100% of the correction (1.0) because the wall is infinitely heavy
+        self.body_a.position += error
 
-        # 2. Rotate (2D Cross Product: r X F)
-        torque = r_a[0] * (-error[1]) - r_a[1] * (-error[0])
-        self.body_a.angular_position += np.degrees(torque) * 0.005
+        # 2. Rotate: Cross Product (r x F) without np.degrees inflation
+        torque = r_a[0] * error[1] - r_a[1] * error[0]
+        self.body_a.angular_position += torque * 0.01
 
     def draw(self, __window):
         pygame.draw.circle(__window, (0, 0, 255), self.get_global_anchors(), 10, 1)
         pygame.draw.circle(__window, (0, 0, 255), self.fixed_anchor, 10, 1)
 
+
 class Pivot(Constraint):
     def __init__(self, body_a: PhysicsObject, body_b: PhysicsObject, anchor_ratio_a, anchor_ratio_b):
         self.body_a = body_a
         self.body_b = body_b
-        self.ratio_a = anchor_ratio_a  # Store the ratio (0.0 to 1.0)
-        self.ratio_b = anchor_ratio_b  # Store the ratio (0.0 to 1.0)
+        self.ratio_a = anchor_ratio_a
+        self.ratio_b = anchor_ratio_b
 
     def get_global_anchors(self):
         theta_a = np.radians(self.body_a.angular_position)
         theta_b = np.radians(self.body_b.angular_position)
 
-        rot_a = np.array([[np.cos(theta_a), -np.sin(theta_a)],
-                          [np.sin(theta_a), np.cos(theta_a)]])
-        rot_b = np.array([[np.cos(theta_b), -np.sin(theta_b)],
-                          [np.sin(theta_b), np.cos(theta_b)]])
+        rot_a = np.array([[np.cos(theta_a), -np.sin(theta_a)], [np.sin(theta_a), np.cos(theta_a)]])
+        rot_b = np.array([[np.cos(theta_b), -np.sin(theta_b)], [np.sin(theta_b), np.cos(theta_b)]])
 
-        # Dynamically calculate local anchors based on current lengths
         local_a = np.array([self.body_a.length * self.ratio_a, 0.0])
         local_b = np.array([self.body_b.length * self.ratio_b, 0.0])
 
         global_a = self.body_a.position + rot_a @ local_a
         global_b = self.body_b.position + rot_b @ local_b
-
         return global_a, global_b
 
-    def get_error(self):
+    def solve(self):
         global_a, global_b = self.get_global_anchors()
-        return global_a - global_b
+
+        # Vector pointing FROM A TO B
+        error = global_b - global_a
+
+        r_a = global_a - self.body_a.position
+        r_b = global_b - self.body_b.position
+
+        # Split the correction equally (assumes equal mass)
+        correction_a = error * 0.5
+        correction_b = -error * 0.5
+
+        # Fix Body A
+        self.body_a.position += correction_a
+        torque_a = r_a[0] * correction_a[1] - r_a[1] * correction_a[0]
+        self.body_a.angular_position += torque_a * 0.01
+
+        # Fix Body B
+        self.body_b.position += correction_b
+        torque_b = r_b[0] * correction_b[1] - r_b[1] * correction_b[0]
+        self.body_b.angular_position += torque_b * 0.01
 
     def draw(self, __window):
         global_a, global_b = self.get_global_anchors()
         pygame.draw.circle(__window, (0, 0, 255), global_a, 10, 1)
         pygame.draw.circle(__window, (0, 0, 255), global_b, 10, 1)
-
-    def solve(self):
-        error = self.get_error()
-        global_a, global_b = self.get_global_anchors()
-
-        r_a = global_a - self.body_a.position
-        r_b = global_b - self.body_b.position
-        correction = error * 0.5
-        rot_weight = 0.005  # Tuning constant for rotation stability
-
-        # Fix Body A
-        self.body_a.position -= correction * 0.5
-        torque_a = r_a[0] * (-correction[1]) - r_a[1] * (-correction[0])
-        self.body_a.angular_position += np.degrees(torque_a) * rot_weight
-
-        # Fix Body B
-        self.body_b.position += correction * 0.5
-        torque_b = r_b[0] * (correction[1]) - r_b[1] * (correction[0])
-        self.body_b.angular_position += np.degrees(torque_b) * rot_weight
 
 
 class MouseConstraint(Constraint):
@@ -117,12 +114,16 @@ class MouseConstraint(Constraint):
         global_a = self.get_global_anchor()
         mouse_pos = np.array(pygame.mouse.get_pos(), dtype=float)
 
-        error = global_a - mouse_pos
+        # Vector pointing FROM anchor TO mouse
+        error = mouse_pos - global_a
         r_a = global_a - self.body_a.position
 
-        self.body_a.position -= error * 0.5
-        torque_a = r_a[0] * (-error[1]) - r_a[1] * (-error[0])
-        self.body_a.angular_position += np.degrees(torque_a) * 0.005
+        # 0.1 makes the mouse act like a stretchy rubber band so it doesn't break the solver
+        correction = error * 0.1
+
+        self.body_a.position += correction
+        torque = r_a[0] * correction[1] - r_a[1] * correction[0]
+        self.body_a.angular_position += torque * 0.01
 
     def draw(self, __window):
         pygame.draw.line(__window, (255, 0, 0), self.get_global_anchor(), pygame.mouse.get_pos(), 2)
