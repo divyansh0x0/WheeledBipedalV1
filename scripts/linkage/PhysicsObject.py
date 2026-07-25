@@ -17,6 +17,7 @@ class PhysicsObject:
         self.angular_velocity =0
         self.angular_acceleration = 0.0
         self.dt = 1/120
+        self.length = 0
         self.mass = 1.0
 
     def update(self):
