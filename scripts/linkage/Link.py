@@ -1,20 +1,11 @@
 import math
-
 import numpy as np
 import pygame.draw
 from pygame import mouse
-
 from linkage.PhysicsObject import PhysicsObject
 
 
-class Constraint:
-    def get_error(self): pass
-
-    def draw(self, __window): pass
-
-
 def get_closest_points(p1, q1, p2, q2):
-    # Calculates the shortest distance between two finite line segments
     d1 = q1 - p1
     d2 = q2 - p2
     r = p1 - p2
@@ -44,58 +35,14 @@ def get_closest_points(p1, q1, p2, q2):
     return c1, c2
 
 
-class CollisionConstraint(Constraint):
-    def __init__(self, body_a: PhysicsObject, body_b: PhysicsObject, thickness: float):
-        self.body_a = body_a
-        self.body_b = body_b
-        # How far apart the centers of the lines need to be to not touch
-        self.thickness = thickness
+class Constraint:
+    def get_error(self): pass
 
-    def solve(self):
-        # 1. Get endpoints for both links
-        start_a, start_y_a, end_x_a, end_y_a = self.body_a.get_points()
-        start_b, start_y_b, end_x_b, end_y_b = self.body_b.get_points()
+    def draw(self, __window): pass
 
-        p1 = np.array([start_a, start_y_a])
-        q1 = np.array([end_x_a, end_y_a])
-        p2 = np.array([start_b, start_y_b])
-        q2 = np.array([end_x_b, end_y_b])
+    def solve(self): pass
 
-        # 2. Find the absolute closest points between the two links
-        c1, c2 = get_closest_points(p1, q1, p2, q2)
 
-        # 3. Check distance
-        dist_vec = c1 - c2
-        dist = np.linalg.norm(dist_vec)
-
-        if dist < self.thickness:
-            # They are colliding! Calculate push-out normal
-            if dist < 1e-5:
-                # Edge Case: Perfectly overlapping lines. Push orthogonally.
-                line_vec = q1 - p1
-                normal = np.array([-line_vec[1], line_vec[0]])
-                n_len = np.linalg.norm(normal)
-                if n_len > 0: normal = normal / n_len
-            else:
-                normal = dist_vec / dist
-
-            penetration = self.thickness - dist
-
-            # 50/50 split to push bodies apart
-            correction = normal * (penetration * 0.5)
-
-            r_a = c1 - self.body_a.position
-            r_b = c2 - self.body_b.position
-
-            # Apply Translation & Torque to Body A
-            self.body_a.position += correction
-            torque_a = r_a[0] * correction[1] - r_a[1] * correction[0]
-            self.body_a.angular_position += torque_a * 0.05
-
-            # Apply Translation & Torque to Body B
-            self.body_b.position -= correction
-            torque_b = r_b[0] * (-correction[1]) - r_b[1] * (-correction[0])
-            self.body_b.angular_position += torque_b * 0.05
 class FixedPivot(Constraint):
     def __init__(self, body_a: PhysicsObject, anchor_ratio_a, fixed_anchor):
         self.body_a = body_a
@@ -113,29 +60,20 @@ class FixedPivot(Constraint):
         error = self.fixed_anchor - global_a
         r_a = global_a - self.body_a.position
 
-        # 1. Rotate FIRST
         torque = r_a[0] * error[1] - r_a[1] * error[0]
         self.body_a.angular_position += torque * 0.01
 
-        # 2. Recalculate where the anchor ended up after the twist
         global_a_new = self.get_global_anchors()
-
-        # 3. Translate LAST (100% rigid snap to the immovable wall)
         error_new = self.fixed_anchor - global_a_new
         self.body_a.position += error_new
 
     def draw(self, __window):
         global_a = self.get_global_anchors()
-
-        # Safely convert NumPy float arrays to integer tuples for Pygame
         ax, ay = int(global_a[0]), int(global_a[1])
         fx, fy = int(self.fixed_anchor[0]), int(self.fixed_anchor[1])
-
-        # Draw a thick RED circle to represent an immovable Fixed Pivot
         pygame.draw.circle(__window, (255, 0, 0), (fx, fy), 14, 4)
-
-        # Draw a smaller red dot for the anchor currently on the body
         pygame.draw.circle(__window, (255, 100, 100), (ax, ay), 6)
+
 
 class Pivot(Constraint):
     def __init__(self, body_a: PhysicsObject, body_b: PhysicsObject, anchor_ratio_a, anchor_ratio_b):
@@ -162,25 +100,24 @@ class Pivot(Constraint):
         correction_a = error * 0.5
         correction_b = -error * 0.5
 
-        # 1. Rotate FIRST
         torque_a = r_a[0] * correction_a[1] - r_a[1] * correction_a[0]
         self.body_a.angular_position += torque_a * 0.01
 
         torque_b = r_b[0] * correction_b[1] - r_b[1] * correction_b[0]
         self.body_b.angular_position += torque_b * 0.01
 
-        # 2. Recalculate
         global_a_new, global_b_new = self.get_global_anchors()
         error_new = global_b_new - global_a_new
 
-        # 3. Translate LAST
         self.body_a.position += error_new * 0.5
         self.body_b.position -= error_new * 0.5
 
     def draw(self, __window):
         global_a, global_b = self.get_global_anchors()
-        pygame.draw.circle(__window, (0, 0, 255), global_a, 10, 1)
-        pygame.draw.circle(__window, (0, 0, 255), global_b, 10, 1)
+        ax, ay = int(global_a[0]), int(global_a[1])
+        bx, by = int(global_b[0]), int(global_b[1])
+        pygame.draw.circle(__window, (0, 0, 255), (ax, ay), 12, 3)
+        pygame.draw.circle(__window, (0, 0, 255), (bx, by), 12, 3)
 
 
 class MouseConstraint(Constraint):
@@ -191,7 +128,10 @@ class MouseConstraint(Constraint):
     def get_global_anchor(self):
         theta_a = np.radians(self.body_a.angular_position)
         rot_a = np.array([[np.cos(theta_a), -np.sin(theta_a)], [np.sin(theta_a), np.cos(theta_a)]])
-        local_a = np.array([self.body_a.length * self.ratio_a, 0.0])
+
+        # Translates a 'center' body click into a rigid mathematical ratio
+        numeric_ratio = 0.5 if self.ratio_a == 'center' else self.ratio_a
+        local_a = np.array([self.body_a.length * numeric_ratio, 0.0])
         return self.body_a.position + rot_a @ local_a
 
     def solve(self):
@@ -201,25 +141,123 @@ class MouseConstraint(Constraint):
         r_a = global_a - self.body_a.position
         correction = error * 0.1
 
-        # 1. Rotate FIRST
         torque = r_a[0] * correction[1] - r_a[1] * correction[0]
         self.body_a.angular_position += torque * 0.01
 
-        # 2. Recalculate
         global_a_new = self.get_global_anchor()
         error_new = mouse_pos - global_a_new
-
-        # 3. Translate LAST
         self.body_a.position += error_new * 0.1
 
     def draw(self, __window):
-        pygame.draw.line(__window, (255, 0, 0), self.get_global_anchor(), pygame.mouse.get_pos(), 2)
+        global_a = self.get_global_anchor()
+        ax, ay = int(global_a[0]), int(global_a[1])
+        mx, my = pygame.mouse.get_pos()
+        pygame.draw.line(__window, (255, 0, 0), (ax, ay), (mx, my), 3)
+
+
+class CollisionConstraint(Constraint):
+    def __init__(self, body_a: PhysicsObject, body_b: PhysicsObject, thickness: float):
+        self.body_a = body_a
+        self.body_b = body_b
+        self.thickness = thickness
+
+    def solve(self):
+        start_a, start_y_a, end_x_a, end_y_a = self.body_a.get_points()
+        start_b, start_y_b, end_x_b, end_y_b = self.body_b.get_points()
+
+        p1, q1 = np.array([start_a, start_y_a]), np.array([end_x_a, end_y_a])
+        p2, q2 = np.array([start_b, start_y_b]), np.array([end_x_b, end_y_b])
+
+        c1, c2 = get_closest_points(p1, q1, p2, q2)
+        dist_vec = c1 - c2
+        dist = np.linalg.norm(dist_vec)
+
+        if dist < self.thickness:
+            if dist < 1e-5:
+                line_vec = q1 - p1
+                normal = np.array([-line_vec[1], line_vec[0]])
+                n_len = np.linalg.norm(normal)
+                if n_len > 0: normal = normal / n_len
+            else:
+                normal = dist_vec / dist
+
+            penetration = self.thickness - dist
+            correction = normal * (penetration * 0.5)
+
+            r_a = c1 - self.body_a.position
+            r_b = c2 - self.body_b.position
+
+            self.body_a.position += correction
+            torque_a = r_a[0] * correction[1] - r_a[1] * correction[0]
+            self.body_a.angular_position += torque_a * 0.05
+
+            self.body_b.position -= correction
+            torque_b = r_b[0] * (-correction[1]) - r_b[1] * (-correction[0])
+            self.body_b.angular_position += torque_b * 0.05
+
+
+class ServoConstraint(Constraint):
+    def __init__(self, rotors: list, stators: list, base_ratio: float):
+        self.rotors = rotors
+        self.stators = stators
+        self.base_ratio = base_ratio
+
+        self.base_rotor = rotors[0]
+        # Store relative offsets so all rotors maintain exact formation
+        self.rotor_offsets = [self._norm(r.angular_position - self.base_rotor.angular_position) for r in rotors]
+
+        if stators:
+            self.base_stator = stators[0]
+            self.initial_angle_diff = self._norm(self.base_rotor.angular_position - self.base_stator.angular_position)
+        else:
+            self.base_stator = None
+            self.initial_angle_diff = self._norm(self.base_rotor.angular_position)
+
+        self.target_angle = 0.0
+
+    def _norm(self, ang):
+        return (ang + 180) % 360 - 180
+
+    def set_target_angle(self, angle):
+        self.target_angle = angle
+
+    def get_global_anchor(self):
+        theta = np.radians(self.base_rotor.angular_position)
+        rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+        local = np.array([self.base_rotor.length * self.base_ratio, 0.0])
+        return self.base_rotor.position + rot @ local
+
+    def solve(self):
+        # 1. Lock all rotors to rotate strictly as one unit
+        for i in range(1, len(self.rotors)):
+            rotor = self.rotors[i]
+            current_diff = self._norm(rotor.angular_position - self.base_rotor.angular_position)
+            error = self._norm(self.rotor_offsets[i] - current_diff)
+            rotor.angular_position += error * 0.5
+            self.base_rotor.angular_position -= error * 0.5
+
+        # 2. Apply opposing torque between the Rotors and the Stators
+        if self.base_stator:
+            current_diff = self._norm(self.base_rotor.angular_position - self.base_stator.angular_position)
+            desired_diff = self._norm(self.initial_angle_diff + self.target_angle)
+            error = self._norm(desired_diff - current_diff)
+            self.base_rotor.angular_position += error * 0.1
+            self.base_stator.angular_position -= error * 0.1
+        else:
+            current_ang = self._norm(self.base_rotor.angular_position)
+            desired_ang = self._norm(self.initial_angle_diff + self.target_angle)
+            error = self._norm(desired_ang - current_ang)
+            self.base_rotor.angular_position += error * 0.1
+
+    def draw(self, __window):
+        global_pos = self.get_global_anchor()
+        px, py = int(global_pos[0]), int(global_pos[1])
+        pygame.draw.circle(__window, (255, 140, 0), (px, py), 18, 5)
+
 
 class Link(PhysicsObject):
     def __init__(self, length=100, thickness=3):
         super().__init__()
-        self.__drag_offset = np.array([0, 0])
-        # Replace the boolean with a state string to track exactly what is being dragged
         self.length = length
         self.thickness = thickness
         self.__end_point_radius = 10
@@ -233,7 +271,6 @@ class Link(PhysicsObject):
     def draw(self, dt, surface) -> None:
         start_x, start_y, end_x, end_y = self.get_points()
         line_color = (0, 0, 0)
-
         pygame.draw.line(surface, line_color, (start_x, start_y), (end_x, end_y), self.thickness)
         pygame.draw.circle(surface, line_color, (start_x, start_y), self.__end_point_radius)
         pygame.draw.circle(surface, line_color, (end_x, end_y), self.__end_point_radius)
@@ -242,23 +279,20 @@ class Link(PhysicsObject):
         start_x, start_y, _, _ = self.get_points()
         mouse = np.array([x, y])
         start = np.array([start_x, start_y])
-        # Increased hitbox from 10 to 20 for easy clicking
         return np.linalg.norm(mouse - start) <= 20
 
     def is_intersecting_end(self, x, y):
         _, _, end_x, end_y = self.get_points()
         mouse = np.array([x, y])
         end = np.array([end_x, end_y])
-        # Increased hitbox from 10 to 20 for easy clicking
         return np.linalg.norm(mouse - end) <= 20
+
     def is_intersecting_center(self, x, y):
         start_x, start_y, end_x, end_y = self.get_points()
-
         start = np.array([start_x, start_y])
         end = np.array([end_x, end_y])
         mouse = np.array([x, y])
 
-        # Guard Clause: Check if the mouse is inside the corner circles
         if self.is_intersecting_start(x, y) or self.is_intersecting_end(x, y):
             return False
 
@@ -266,31 +300,22 @@ class Link(PhysicsObject):
         mouse_vec = mouse - start
         line_len = self.length
 
-        if line_len == 0:
-            return False
-
+        if line_len == 0: return False
         line_unit = line_vec / line_len
         projection_length = np.dot(mouse_vec, line_unit)
 
         if 0 <= projection_length <= line_len:
             closest_point = start + projection_length * line_unit
             distance = np.linalg.norm(mouse - closest_point)
-            return distance < 10
-
+            return distance < 5
         return False
 
-
     def get_node_at(self, x, y):
-        if self.is_intersecting_start(x, y):
-            return 0.0
-        if self.is_intersecting_end(x, y):
-            return 1.0
-        if self.is_intersecting_center(x, y):
-            return 'center'
+        if self.is_intersecting_start(x, y): return 0.0
+        if self.is_intersecting_end(x, y): return 1.0
+        if self.is_intersecting_center(x, y): return 'center'
         return None
 
-
-    # Returns the global (x, y) NumPy array of the requested ratio
     def get_global_position(self, ratio):
         start_x, start_y, end_x, end_y = self.get_points()
         if ratio == 0.0:
