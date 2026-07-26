@@ -21,23 +21,52 @@ class SimpleSlider:
         self.val = 0.0
         self.dragging = False
         self.rect = pygame.Rect(10, 10, self.width, self.height)
+        self.btn_rect = pygame.Rect(220, 10, 50, 20)  # Toggle button
 
     def draw(self, surface, index):
         self.rect.y = 30 + (index * 60)
-        pygame.draw.rect(surface, (200, 200, 200), self.rect, border_radius=10)
-        ratio = (self.val - self.min_v) / (self.max_v - self.min_v)
-        kx = self.rect.x + ratio * self.rect.width
-        pygame.draw.circle(surface, (255, 140, 0), (int(kx), self.rect.centery), 12)
+        self.btn_rect.y = self.rect.y
 
+        # 1. Draw Slider
+        if self.servo.enabled:
+            pygame.draw.rect(surface, (200, 200, 200), self.rect, border_radius=10)
+            ratio = (self.val - self.min_v) / (self.max_v - self.min_v)
+            kx = self.rect.x + ratio * self.rect.width
+            pygame.draw.circle(surface, (255, 140, 0), (int(kx), self.rect.centery), 12)
+            btn_color = (100, 255, 100)
+            btn_text = "ON"
+        else:
+            pygame.draw.rect(surface, (150, 150, 150), self.rect, border_radius=10)
+            ratio = (self.val - self.min_v) / (self.max_v - self.min_v)
+            kx = self.rect.x + ratio * self.rect.width
+            pygame.draw.circle(surface, (100, 100, 100), (int(kx), self.rect.centery), 12)
+            btn_color = (255, 100, 100)
+            btn_text = "OFF"
+
+        # 2. Draw ON/OFF Button
+        pygame.draw.rect(surface, btn_color, self.btn_rect, border_radius=5)
         font = pygame.font.SysFont(None, 24)
-        img = font.render(f"Motor {index + 1}: {int(self.val)} deg", True, (0, 0, 0))
-        surface.blit(img, (self.rect.x, self.rect.y - 20))
+        btn_img = font.render(btn_text, True, (0, 0, 0))
+        # Center the text in the button
+        surface.blit(btn_img, (self.btn_rect.x + 8, self.btn_rect.y + 2))
+
+        # 3. Draw Title
+        title_text = f"Motor {index + 1}: {int(self.val)} deg"
+        title_img = font.render(title_text, True, (0, 0, 0))
+        surface.blit(title_img, (self.rect.x, self.rect.y - 20))
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.rect.collidepoint(event.pos):
+            # Check toggle button click
+            if self.btn_rect.collidepoint(event.pos):
+                self.servo.enabled = not self.servo.enabled
+                return True
+
+            # Check slider click (only if enabled)
+            if self.servo.enabled and self.rect.collidepoint(event.pos):
                 self.dragging = True
                 return True
+
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.dragging = False
 
@@ -60,10 +89,11 @@ class World:
         self.__linkages: list[Link] = []
         self.__joints: list[Constraint] = []
         self.selected_nodes = []
+        self.selected_motors = []
+        self.current_mas = []
         self.mouse_constraint = None
         self.sliders: list[SimpleSlider] = []
 
-        # Double-Click Tracking
         self.double_click_time = 300
         self.last_click_time = 0
         self.last_clicked_link = None
@@ -73,7 +103,7 @@ class World:
         print("⚙️ LINKAGE ENGINE CONTROLS ⚙️")
         print("L         : Spawn a new link")
         print("L-CLICK   : Drag object (Double-click to edit length!)")
-        print("R-CLICK   : Select/Deselect endpoints or body")
+        print("R-CLICK   : Select/Deselect endpoints or motors")
         print("J         : Join 2 selected endpoints together (Pivot)")
         print("C         : Make 2 connected linkages completely Collinear")
         print("F         : Fix selected endpoint to the wall")
@@ -167,35 +197,47 @@ class World:
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             x, y = pygame.mouse.get_pos()
+            mouse_pos = np.array([x, y])
+            motor_clicked = False
             found_selection = False
-            for link in self.__linkages:
-                node_ratio = link.get_node_at(x, y)
-                if node_ratio is not None:
-                    node_tuple = (link, node_ratio)
-                    if node_tuple in self.selected_nodes:
-                        self.selected_nodes.remove(node_tuple)
+
+            for slider in self.sliders:
+                servo = slider.servo
+                anchor = servo.get_global_anchor()
+                if np.linalg.norm(mouse_pos - anchor) <= 20:
+                    if servo in self.selected_motors:
+                        self.selected_motors.remove(servo)
                     else:
-                        self.selected_nodes.append(node_tuple)
-                    found_selection = True
+                        self.selected_motors.append(servo)
+                    motor_clicked = True
                     break
 
-            if not found_selection:
+            if not motor_clicked:
+                for link in self.__linkages:
+                    node_ratio = link.get_node_at(x, y)
+                    if node_ratio is not None:
+                        node_tuple = (link, node_ratio)
+                        if node_tuple in self.selected_nodes:
+                            self.selected_nodes.remove(node_tuple)
+                        else:
+                            self.selected_nodes.append(node_tuple)
+                        found_selection = True
+                        break
+
+            if not found_selection and not motor_clicked:
                 self.selected_nodes.clear()
+                self.selected_motors.clear()
 
         if event.type == pygame.KEYDOWN:
-
-            # --- QUICK SAVE SYSTEM ---
             if event.key == pygame.K_s:
                 export_data = {"linkages": [], "joints": []}
                 link_map = {link: i for i, link in enumerate(self.__linkages)}
-
                 for i, link in enumerate(self.__linkages):
                     export_data["linkages"].append({
                         "length": link.length,
                         "position": [link.position[0], link.position[1]],
                         "angle": link.angular_position
                     })
-
                 for j in self.__joints:
                     if isinstance(j, Pivot):
                         export_data["joints"].append({
@@ -224,70 +266,58 @@ class World:
                             "rotors": [link_map.get(r, -1) for r in j.rotors if link_map.get(r, -1) != -1],
                             "stators": [link_map.get(s, -1) for s in j.stators if link_map.get(s, -1) != -1],
                             "base_ratio": j.base_ratio,
-                            "target_angle": j.target_angle
+                            "target_angle": j.target_angle,
+                            "enabled": getattr(j, "enabled", True)  # Save enable state
                         })
-
                 with open("quick_save.json", "w") as f:
                     json.dump(export_data, f, indent=4)
                 print("SUCCESS: Quick Save completed!")
 
-            # --- QUICK LOAD SYSTEM ---
             if event.key == pygame.K_o:
                 try:
                     with open("quick_save.json", "r") as f:
                         import_data = json.load(f)
 
-                    # Wipe the current slate clean
                     self.__linkages.clear()
                     self.__joints.clear()
                     self.selected_nodes.clear()
+                    self.selected_motors.clear()
                     self.sliders.clear()
                     self.mouse_constraint = None
 
-                    # Reconstruct Linkages
                     for l_data in import_data.get("linkages", []):
                         link = Link(length=l_data["length"])
                         link.position = np.array(l_data["position"], dtype=float)
                         link.angular_position = float(l_data["angle"])
                         self.__linkages.append(link)
 
-                    # Reconstruct Joints & Constraints
                     for j_data in import_data.get("joints", []):
                         j_type = j_data.get("type")
                         if j_type == "Pivot":
                             l_a = self.__linkages[j_data["link_a"]]
                             l_b = self.__linkages[j_data["link_b"]]
                             self.__joints.append(Pivot(l_a, l_b, j_data["ratio_a"], j_data["ratio_b"]))
-
                         elif j_type == "FixedPivot":
                             l_a = self.__linkages[j_data["link_a"]]
                             self.__joints.append(FixedPivot(l_a, j_data["ratio_a"], j_data["fixed_anchor"]))
-
                         elif j_type == "CollinearConstraint":
                             l_a = self.__linkages[j_data["link_a"]]
                             l_b = self.__linkages[j_data["link_b"]]
                             self.__joints.append(CollinearConstraint(l_a, l_b))
-
                         elif j_type == "ServoConstraint":
                             rotors = [self.__linkages[r] for r in j_data["rotors"]]
                             stators = [self.__linkages[s] for s in j_data["stators"]]
                             new_servo = ServoConstraint(rotors, stators, j_data["base_ratio"])
                             new_servo.target_angle = j_data["target_angle"]
+                            new_servo.enabled = j_data.get("enabled", True)  # Load enable state
                             self.__joints.append(new_servo)
 
-                            # Recreate UI Slider
                             slider = SimpleSlider(new_servo)
                             slider.val = j_data["target_angle"]
                             self.sliders.append(slider)
-
                     print("SUCCESS: Quick Load completed!")
                 except FileNotFoundError:
                     print("WARNING: No quick save file found (quick_save.json).")
-                except Exception as e:
-                    print(f"WARNING: Failed to load save file: {e}")
-
-            if event.key == pygame.K_p:  # Keep generic debug JSON for diagnostics
-                pass
 
             if event.key == pygame.K_j:
                 endpoints = [n for n in self.selected_nodes if n[1] != 'center']
@@ -298,15 +328,12 @@ class World:
                         self.__joints.append(Pivot(link1, link2, ratio1, ratio2))
                         self.selected_nodes.clear()
                         print("SUCCESS: Joined two endpoints!")
-                else:
-                    print("WARNING: Select exactly 2 endpoints to join.")
 
             if event.key == pygame.K_c:
                 body_nodes = [n for n in self.selected_nodes if n[1] == 'center']
                 if len(body_nodes) == 2:
                     link1, _ = body_nodes[0]
                     link2, _ = body_nodes[1]
-
                     if link1 != link2:
                         are_connected = False
                         for j in self.__joints:
@@ -315,7 +342,6 @@ class World:
                                         j.body_a == link2 and j.body_b == link1):
                                     are_connected = True
                                     break
-
                         if are_connected:
                             self.__joints.append(CollinearConstraint(link1, link2))
                             print("SUCCESS: Links made permanently collinear!")
@@ -323,8 +349,6 @@ class World:
                         else:
                             print(
                                 "WARNING: Links must be connected by a Pivot joint first (Select endpoints & press J).")
-                else:
-                    print("WARNING: Select exactly 2 link bodies (centers) to make them collinear.")
 
             if event.key == pygame.K_f:
                 for selected_link, ratio in self.selected_nodes:
@@ -360,8 +384,6 @@ class World:
                     if np.linalg.norm(link.get_global_position(0.0) - pivot_pos) <= 25 or \
                             np.linalg.norm(link.get_global_position(1.0) - pivot_pos) <= 25:
                         rotors.append(link)
-                    else:
-                        print("INFO: Ignored a link body because it is not connected to the selected joint.")
 
                 if not rotors:
                     self.selected_nodes.clear()
@@ -387,6 +409,11 @@ class World:
                 self.selected_nodes.clear()
 
             if event.key in (pygame.K_x, pygame.K_DELETE, pygame.K_BACKSPACE):
+                for motor in self.selected_motors:
+                    if motor in self.__joints:
+                        self.__joints.remove(motor)
+                self.selected_motors.clear()
+
                 for selected_link, ratio in self.selected_nodes:
                     if ratio == 'center':
                         if selected_link in self.__linkages:
@@ -419,6 +446,59 @@ class World:
 
                 self.selected_nodes.clear()
                 self.sliders = [s for s in self.sliders if s.servo in self.__joints]
+                self.selected_motors = [m for m in self.selected_motors if m in self.__joints]
+
+    def __calculate_ghost_ma(self, active_collisions):
+        self.current_mas = []
+
+        effectors = [n for n in self.selected_nodes if n[1] != 'center']
+        if len(self.selected_motors) == 1 and len(effectors) > 0:
+            motor = self.selected_motors[0]
+
+            saved_state = [(link.position.copy(), link.angular_position) for link in self.__linkages]
+            old_target = motor.target_angle
+            old_enabled = motor.enabled  # Save state just in case user is testing a disabled motor
+
+            start_positions = [link.get_global_position(ratio).copy() for link, ratio in effectors]
+
+            nudge_deg = 0.5
+            motor.target_angle = old_target + nudge_deg
+            motor.enabled = True  # Force motor ON during ghost simulation so it actually moves
+
+            iterations = 30
+            for _ in range(iterations):
+                for joint in self.__joints:
+                    if isinstance(joint, Pivot): joint.solve()
+                for joint in self.__joints:
+                    if isinstance(joint, CollinearConstraint): joint.solve()
+
+                for slider in self.sliders:
+                    if slider.servo == motor:
+                        slider.servo.solve()
+                    else:
+                        slider.servo.set_target_angle(slider.val)
+                        slider.servo.solve()
+
+                for collision in active_collisions: collision.solve()
+                for joint in self.__joints:
+                    if isinstance(joint, FixedPivot): joint.solve()
+
+            for i, (link, ratio) in enumerate(effectors):
+                end_pos = link.get_global_position(ratio)
+                output_dist = np.linalg.norm(end_pos - start_positions[i])
+
+                if output_dist > 1e-4:
+                    delta_theta_rad = np.radians(nudge_deg)
+                    input_dist = motor.base_rotor.length * delta_theta_rad
+                    ma = input_dist / output_dist
+                else:
+                    ma = float('inf')
+                self.current_mas.append(ma)
+
+            for i, link in enumerate(self.__linkages):
+                link.position, link.angular_position = saved_state[i]
+            motor.target_angle = old_target
+            motor.enabled = old_enabled  # Return to original state
 
     def __update(self) -> None:
         for obj in self.__linkages:
@@ -481,6 +561,8 @@ class World:
             for joint in self.__joints:
                 if isinstance(joint, FixedPivot): joint.solve()
 
+        self.__calculate_ghost_ma(active_collisions)
+
     def __draw(self, dt) -> None:
         for obj in self.__linkages:
             obj.draw(dt, self.__window)
@@ -494,5 +576,36 @@ class World:
             px, py = int(pos[0]), int(pos[1])
             pygame.draw.circle(self.__window, (0, 255, 0), (px, py), 16, 4)
 
+        for servo in self.selected_motors:
+            anchor = servo.get_global_anchor()
+            px, py = int(anchor[0]), int(anchor[1])
+            pygame.draw.circle(self.__window, (255, 0, 255), (px, py), 22, 4)
+
         for i, slider in enumerate(self.sliders):
             slider.draw(self.__window, i)
+
+        if self.current_mas:
+            font = pygame.font.SysFont(None, 24)
+            box_width = 250
+            box_height = 40 + 30 * len(self.current_mas)
+            w, h = self.__window.get_size()
+            rect = pygame.Rect(w - box_width - 20, h - box_height - 20, box_width, box_height)
+
+            overlay = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+            overlay.fill((40, 40, 40, 200))
+            self.__window.blit(overlay, (rect.x, rect.y))
+            pygame.draw.rect(self.__window, (100, 100, 100), rect, 2, border_radius=5)
+
+            title = font.render("Mechanical Advantage", True, (255, 255, 255))
+            self.__window.blit(title, (rect.x + 10, rect.y + 10))
+
+            for i, ma in enumerate(self.current_mas):
+                if ma == float('inf'):
+                    ma_text = f"Output {i + 1}: INF (Locked)"
+                    color = (255, 50, 50)
+                else:
+                    ma_text = f"Output {i + 1}: {ma:.3f}"
+                    color = (50, 255, 50)
+
+                text_surf = font.render(ma_text, True, color)
+                self.__window.blit(text_surf, (rect.x + 10, rect.y + 40 + i * 30))

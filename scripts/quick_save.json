@@ -3,72 +3,45 @@
         {
             "length": 30,
             "position": [
-                422.8364928759384,
-                310.40393607759677
+                390.08757509847874,
+                278.8858469510694
             ],
-            "angle": -18.726999039634812
+            "angle": -64.3258117870689
         },
         {
             "length": 120,
             "position": [
-                379.746803149182,
-                166.7262459540014
+                279.9999999999992,
+                177.0000000000004
             ],
-            "angle": 2.1955339022429623
+            "angle": -2.430342841150256
         },
         {
             "length": 150,
             "position": [
-                379.74680314918197,
-                166.72624595400146
+                279.9999999999992,
+                177.00000000000048
             ],
-            "angle": 73.30573783181124
+            "angle": 42.78420281628554
         },
         {
             "length": 80,
             "position": [
-                499.6587118250329,
-                171.32343615176245
+                399.89206160577226,
+                171.91142810628497
             ],
-            "angle": 102.56031646421631
+            "angle": 87.71249817780458
         },
         {
             "length": 113.3,
             "position": [
-                315.5346976788019,
-                346.7799549289191
+                340.9999983253696,
+                380.9999978144249
             ],
-            "angle": -18.726999039634823
-        },
-        {
-            "length": 60,
-            "position": [
-                482.2613309432767,
-                249.40884540634138
-            ],
-            "angle": 121.12349572162252
+            "angle": -64.32581178706889
         }
     ],
     "joints": [
-        {
-            "type": "Pivot",
-            "link_a": 4,
-            "ratio_a": 1.0,
-            "link_b": 0,
-            "ratio_b": 0.0
-        },
-        {
-            "type": "Pivot",
-            "link_a": 2,
-            "ratio_a": 1.0,
-            "link_b": 0,
-            "ratio_b": 0.0
-        },
-        {
-            "type": "CollinearConstraint",
-            "link_a": 4,
-            "link_b": 0
-        },
         {
             "type": "Pivot",
             "link_a": 2,
@@ -77,44 +50,57 @@
             "ratio_b": 0.0
         },
         {
-            "type": "Pivot",
-            "link_a": 5,
-            "ratio_a": 0.0,
-            "link_b": 3,
-            "ratio_b": 1.0
-        },
-        {
-            "type": "Pivot",
-            "link_a": 0,
-            "ratio_a": 1.0,
-            "link_b": 5,
-            "ratio_b": 1.0
-        },
-        {
-            "type": "Pivot",
-            "link_a": 1,
-            "ratio_a": 1.0,
-            "link_b": 3,
-            "ratio_b": 0.0
-        },
-        {
             "type": "FixedPivot",
             "link_a": 1,
             "ratio_a": 0.0,
             "fixed_anchor": [
-                379.746803149182,
-                166.7262459540014
+                279.9999999999992,
+                177.0000000000004
             ]
+        },
+        {
+            "type": "Pivot",
+            "link_a": 0,
+            "ratio_a": 0.0,
+            "link_b": 4,
+            "ratio_b": 1.0
+        },
+        {
+            "type": "CollinearConstraint",
+            "link_a": 4,
+            "link_b": 0
+        },
+        {
+            "type": "Pivot",
+            "link_a": 0,
+            "ratio_a": 0.0,
+            "link_b": 2,
+            "ratio_b": 1.0
+        },
+        {
+            "type": "Pivot",
+            "link_a": 3,
+            "ratio_a": 0.0,
+            "link_b": 1,
+            "ratio_b": 1.0
+        },
+        {
+            "type": "Pivot",
+            "link_a": 3,
+            "ratio_a": 1.0,
+            "link_b": 0,
+            "ratio_b": 1.0
         },
         {
             "type": "ServoConstraint",
             "rotors": [
-                2,
+                2
+            ],
+            "stators": [
                 1
             ],
-            "stators": [],
             "base_ratio": 0.0,
-            "target_angle": 12.600000000000023
+            "target_angle": 0.0
         },
         {
             "type": "ServoConstraint",

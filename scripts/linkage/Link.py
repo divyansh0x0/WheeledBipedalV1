@@ -59,7 +59,7 @@ class CollinearConstraint(Constraint):
         diff = (self.body_b.angular_position - self.body_a.angular_position) % 360
         error = (diff - self.target_diff + 180) % 360 - 180
 
-        step = np.clip(error * 0.3, -10.0, 10.0)
+        step = np.clip(error * 0.8, -15.0, 15.0)
         self.body_a.angular_position += step * 0.5
         self.body_b.angular_position -= step * 0.5
 
@@ -87,18 +87,17 @@ class FixedPivot(Constraint):
         global_a = self.get_global_anchors()
         error = self.fixed_anchor - global_a
 
-        # 1. Direct translation correction
         self.body_a.position += error
 
-        # 2. Angular correction normalized by arm length squared
         r_a = global_a - self.body_a.position
         r_len_sq = np.dot(r_a, r_a)
 
         if r_len_sq > 1e-4:
             cross_prod = r_a[0] * error[1] - r_a[1] * error[0]
             d_theta_deg = np.degrees(cross_prod / r_len_sq)
-            d_theta_deg = np.clip(d_theta_deg, -5.0, 5.0)
-            self.body_a.angular_position += d_theta_deg * 0.2
+
+            d_theta_deg = np.clip(d_theta_deg, -15.0, 15.0)
+            self.body_a.angular_position += d_theta_deg * 0.8
 
     def draw(self, __window):
         global_a = self.get_global_anchors()
@@ -128,11 +127,9 @@ class Pivot(Constraint):
         global_a, global_b = self.get_global_anchors()
         error = global_b - global_a
 
-        # Positional relaxation (50/50)
         self.body_a.position += error * 0.5
         self.body_b.position -= error * 0.5
 
-        # Angular relaxation normalized by arm length squared
         r_a = global_a - self.body_a.position
         r_b = global_b - self.body_b.position
 
@@ -141,13 +138,13 @@ class Pivot(Constraint):
 
         if r_a_sq > 1e-4:
             cross_a = r_a[0] * error[1] - r_a[1] * error[0]
-            d_theta_a = np.clip(np.degrees(cross_a / r_a_sq), -5.0, 5.0)
-            self.body_a.angular_position += d_theta_a * 0.1
+            d_theta_a = np.clip(np.degrees(cross_a / r_a_sq), -15.0, 15.0)
+            self.body_a.angular_position += d_theta_a * 0.6
 
         if r_b_sq > 1e-4:
             cross_b = r_b[0] * (-error[1]) - r_b[1] * (-error[0])
-            d_theta_b = np.clip(np.degrees(cross_b / r_b_sq), -5.0, 5.0)
-            self.body_b.angular_position += d_theta_b * 0.1
+            d_theta_b = np.clip(np.degrees(cross_b / r_b_sq), -15.0, 15.0)
+            self.body_b.angular_position += d_theta_b * 0.6
 
     def draw(self, __window):
         global_a, global_b = self.get_global_anchors()
@@ -174,14 +171,14 @@ class MouseConstraint(Constraint):
         mouse_pos = np.array(pygame.mouse.get_pos(), dtype=float)
         error = mouse_pos - global_a
 
-        self.body_a.position += error * 0.1
+        self.body_a.position += error * 0.02
 
         r_a = global_a - self.body_a.position
         r_len_sq = np.dot(r_a, r_a)
         if r_len_sq > 1e-4:
             cross_prod = r_a[0] * error[1] - r_a[1] * error[0]
-            d_theta = np.clip(np.degrees(cross_prod / r_len_sq), -5.0, 5.0)
-            self.body_a.angular_position += d_theta * 0.05
+            d_theta = np.clip(np.degrees(cross_prod / r_len_sq), -10.0, 10.0)
+            self.body_a.angular_position += d_theta * 0.01
 
     def draw(self, __window):
         global_a = self.get_global_anchor()
@@ -229,6 +226,9 @@ class ServoConstraint(Constraint):
         self.stators = stators
         self.base_ratio = base_ratio
 
+        # Enable flag dictates if it hunts for the target angle
+        self.enabled = True
+
         self.base_rotor = rotors[0]
         self.rotor_offsets = [self._norm(r.angular_position - self.base_rotor.angular_position) for r in rotors]
 
@@ -254,6 +254,7 @@ class ServoConstraint(Constraint):
         return self.base_rotor.position + rot @ local
 
     def solve(self):
+        # 1. ALWAYS lock rotors together (keep the rigid body intact)
         for i in range(1, len(self.rotors)):
             rotor = self.rotors[i]
             current_diff = self._norm(rotor.angular_position - self.base_rotor.angular_position)
@@ -261,25 +262,33 @@ class ServoConstraint(Constraint):
             rotor.angular_position += error * 0.5
             self.base_rotor.angular_position -= error * 0.5
 
+        # 2. Skip servo torque if disabled (acts like a free pivot)
+        if not self.enabled:
+            return
+
+        # 3. Apply Servo Torque
         if self.base_stator:
             current_diff = self._norm(self.base_rotor.angular_position - self.base_stator.angular_position)
             desired_diff = self._norm(self.initial_angle_diff + self.target_angle)
             error = self._norm(desired_diff - current_diff)
 
-            step = np.clip(error * 0.2, -5.0, 5.0)
+            step = np.clip(error * 0.5, -10.0, 10.0)
             self.base_rotor.angular_position += step * 0.5
             self.base_stator.angular_position -= step * 0.5
         else:
             current_ang = self._norm(self.base_rotor.angular_position)
             desired_ang = self._norm(self.initial_angle_diff + self.target_angle)
             error = self._norm(desired_ang - current_ang)
-            step = np.clip(error * 0.2, -5.0, 5.0)
+
+            step = np.clip(error * 0.5, -10.0, 10.0)
             self.base_rotor.angular_position += step
 
     def draw(self, __window):
         global_pos = self.get_global_anchor()
         px, py = int(global_pos[0]), int(global_pos[1])
-        pygame.draw.circle(__window, (255, 140, 0), (px, py), 18, 5)
+        # Draw gray if disabled to show it is free-spinning
+        color = (255, 140, 0) if self.enabled else (150, 150, 150)
+        pygame.draw.circle(__window, color, (px, py), 18, 5)
 
 
 class Link(PhysicsObject):
