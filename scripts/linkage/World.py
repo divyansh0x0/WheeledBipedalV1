@@ -21,13 +21,12 @@ class SimpleSlider:
         self.val = 0.0
         self.dragging = False
         self.rect = pygame.Rect(10, 10, self.width, self.height)
-        self.btn_rect = pygame.Rect(220, 10, 50, 20)  # Toggle button
+        self.btn_rect = pygame.Rect(220, 10, 50, 20)
 
     def draw(self, surface, index):
         self.rect.y = 30 + (index * 60)
         self.btn_rect.y = self.rect.y
 
-        # 1. Draw Slider
         if self.servo.enabled:
             pygame.draw.rect(surface, (200, 200, 200), self.rect, border_radius=10)
             ratio = (self.val - self.min_v) / (self.max_v - self.min_v)
@@ -43,26 +42,21 @@ class SimpleSlider:
             btn_color = (255, 100, 100)
             btn_text = "OFF"
 
-        # 2. Draw ON/OFF Button
         pygame.draw.rect(surface, btn_color, self.btn_rect, border_radius=5)
         font = pygame.font.SysFont(None, 24)
         btn_img = font.render(btn_text, True, (0, 0, 0))
-        # Center the text in the button
         surface.blit(btn_img, (self.btn_rect.x + 8, self.btn_rect.y + 2))
 
-        # 3. Draw Title
-        title_text = f"Motor {index + 1}: {int(self.val)} deg"
+        title_text = f"Motor {index + 1}: {float(self.val)} deg"
         title_img = font.render(title_text, True, (0, 0, 0))
         surface.blit(title_img, (self.rect.x, self.rect.y - 20))
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # Check toggle button click
             if self.btn_rect.collidepoint(event.pos):
                 self.servo.enabled = not self.servo.enabled
                 return True
 
-            # Check slider click (only if enabled)
             if self.servo.enabled and self.rect.collidepoint(event.pos):
                 self.dragging = True
                 return True
@@ -267,7 +261,7 @@ class World:
                             "stators": [link_map.get(s, -1) for s in j.stators if link_map.get(s, -1) != -1],
                             "base_ratio": j.base_ratio,
                             "target_angle": j.target_angle,
-                            "enabled": getattr(j, "enabled", True)  # Save enable state
+                            "enabled": getattr(j, "enabled", True)
                         })
                 with open("quick_save.json", "w") as f:
                     json.dump(export_data, f, indent=4)
@@ -309,7 +303,7 @@ class World:
                             stators = [self.__linkages[s] for s in j_data["stators"]]
                             new_servo = ServoConstraint(rotors, stators, j_data["base_ratio"])
                             new_servo.target_angle = j_data["target_angle"]
-                            new_servo.enabled = j_data.get("enabled", True)  # Load enable state
+                            new_servo.enabled = j_data.get("enabled", True)
                             self.__joints.append(new_servo)
 
                             slider = SimpleSlider(new_servo)
@@ -457,13 +451,13 @@ class World:
 
             saved_state = [(link.position.copy(), link.angular_position) for link in self.__linkages]
             old_target = motor.target_angle
-            old_enabled = motor.enabled  # Save state just in case user is testing a disabled motor
+            old_enabled = motor.enabled
 
             start_positions = [link.get_global_position(ratio).copy() for link, ratio in effectors]
 
             nudge_deg = 0.5
             motor.target_angle = old_target + nudge_deg
-            motor.enabled = True  # Force motor ON during ghost simulation so it actually moves
+            motor.enabled = True
 
             iterations = 30
             for _ in range(iterations):
@@ -498,7 +492,7 @@ class World:
             for i, link in enumerate(self.__linkages):
                 link.position, link.angular_position = saved_state[i]
             motor.target_angle = old_target
-            motor.enabled = old_enabled  # Return to original state
+            motor.enabled = old_enabled
 
     def __update(self) -> None:
         for obj in self.__linkages:
@@ -554,7 +548,22 @@ class World:
                 if isinstance(joint, CollinearConstraint): joint.solve()
 
             for slider in self.sliders:
-                slider.servo.set_target_angle(slider.val)
+                if slider.servo.enabled:
+                    slider.servo.set_target_angle(slider.val)
+                else:
+                    # --- BACKDRIVING ---
+                    # Calculate real angle of disabled motor and update slider UI
+                    servo = slider.servo
+                    if servo.base_stator:
+                        current_diff = servo._norm(
+                            servo.base_rotor.angular_position - servo.base_stator.angular_position)
+                    else:
+                        current_diff = servo._norm(servo.base_rotor.angular_position)
+
+                    actual_angle = servo._norm(current_diff - servo.initial_angle_diff)
+                    slider.val = np.clip(actual_angle, slider.min_v, slider.max_v)
+                    servo.set_target_angle(slider.val)
+
                 slider.servo.solve()
 
             for collision in active_collisions: collision.solve()

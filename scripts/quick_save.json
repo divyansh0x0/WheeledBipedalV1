@@ -22,7 +22,7 @@
                 279.9999999999992,
                 177.00000000000048
             ],
-            "angle": 42.78420281628554
+            "angle": 42.78420281628555
         },
         {
             "length": 80,
@@ -38,7 +38,7 @@
                 340.9999983253696,
                 380.9999978144249
             ],
-            "angle": -64.32581178706889
+            "angle": -64.3258117870689
         }
     ],
     "joints": [
@@ -100,7 +100,8 @@
                 1
             ],
             "base_ratio": 0.0,
-            "target_angle": 0.0
+            "target_angle": 0.0,
+            "enabled": false
         },
         {
             "type": "ServoConstraint",
@@ -111,7 +112,8 @@
                 1
             ],
             "base_ratio": 0.0,
-            "target_angle": 0.0
+            "target_angle": 0.0,
+            "enabled": false
         }
     ]
 }
