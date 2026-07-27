@@ -1,4 +1,5 @@
 #include "ActuatorManager.h"
+#include "BalancePID.h"
 #include "BatteryManager.h"
 #include "Buzzer.h"
 #include "drivers/GPIO.h"
@@ -41,8 +42,24 @@ STM32F411::MPU6050::MPU6050<STM32F411::I2C1, STM32F411::MPU6050::GyroScale::_250
 mpu6050{};
 BipedalV1::BatteryManager<MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE, 133.0f, 33.0f> battery_manager{};
 BipedalV1::ActuatorManager actuator_manager{};
-BipedalV1::Buzzer  buzzer{};
+BipedalV1::Buzzer buzzer{};
 volatile bool button_is_pressed;
+volatile bool mpu_data_ready = false;
+STM32F411::GPIOStatus status = STM32F411::LOW;
+BipedalV1::BalancePID balance_pid{0.01f, 0.0f, 0.0f, 0, 0, 0};
+volatile float pid_output = 0.0f;
+
+float MAX_ROLL_ANGLE = 30.0f;
+
+void doPID() {
+    const float roll = mpu6050.getRoll();
+    if (roll > MAX_ROLL_ANGLE || roll < -MAX_ROLL_ANGLE) {
+        pid_output = 0.0f;
+    } else {
+        pid_output = balance_pid.getRollPID(roll);
+    }
+    actuator_manager.move(pid_output, pid_output);
+}
 
 [[noreturn]] int main() {
     using namespace STM32F411;
@@ -63,13 +80,14 @@ volatile bool button_is_pressed;
     Pins::B8::enableAlternateFunction<Peripherals::SCL1>();
     Pins::B7::enableAlternateFunction<Peripherals::SDA1>();
 
+
     mpu6050.configure(true);
     battery_manager.initialize();
     actuator_manager.initialize();
     buzzer.initialize();
 
     mpu6050.beginRead();
-    InterruptManager::attachEXTIInterrupt(InterruptManager::EXTILine::Line5, [] { mpu6050.beginRead(); },
+    InterruptManager::attachEXTIInterrupt(InterruptManager::EXTILine::Line5, [] { mpu_data_ready = true; },
                                           InterruptManager::EXTISource::GPIOB, InterruptManager::EXTITrigger::RISING);
     t1 = Clock::millis();
     t2 = Clock::millis();
@@ -78,8 +96,13 @@ volatile bool button_is_pressed;
     volatile uint32_t button_press_start_time = 0;
 
 
-
     while (true) {
+        // --- MPU6050 DMA READ (triggered by EXTI data-ready flag) ---
+        if (mpu_data_ready) {
+            mpu_data_ready = false;
+            mpu6050.beginRead();
+        }
+
         // --- NON-BLOCKING BUTTON DEBOUNCE & LONG PRESS HANDLING ---
         button_is_pressed = (Pins::A0::getInputState() == LOW);
 
@@ -88,50 +111,31 @@ volatile bool button_is_pressed;
                 // Button was just pressed down
                 button_was_pressed = true;
                 button_press_start_time = Clock::millis();
-            } else {
-                // Button is being held down. Check if held for > 1000ms
-                if (Clock::millis() - button_press_start_time > 1000) {
-                    // Flash LED 4 times to indicate MPU calibration start
-                    for (int i = 0; i < 10; ++i) {
-                        buzzer.setDutyCycle(50);
-                        buzzer.setDutyCycle(50);
-                        Clock::delayMillis(200);
-                        buzzer.setDutyCycle(0);
-                        Clock::delayMillis(200);
-                    }
-                    Pins::C13::set(LOW); // Keep LED in steady state
-
-                    // Calibrate IMU
-                    mpu6050.calibrate();
-
-                    // Reset state to avoid calibrating repeatedly if button is held indefinitely
-                    button_was_pressed = false;
-                    while(Pins::A0::getInputState() == LOW); // Wait until user lets go
+                Pins::C13::set(LOW); // LED ON while held
+            } else if (Clock::millis() - button_press_start_time > 500) {
+                // Held for > 1 second — blink LED 5 times
+                for (int i = 0; i < 5; i++) {
+                    Pins::C13::set(HIGH); // LED OFF (active low)
+                    Clock::delayMillis(200);
+                    Pins::C13::set(LOW); // LED ON
+                    Clock::delayMillis(200);
                 }
+                Pins::C13::set(HIGH); // LED OFF after blink
+
+                // Calibrate IMU
+                mpu6050.calibrate();
+
+                // Wait until user releases the button to avoid re-triggering
+                while (Pins::A0::getInputState() == LOW);
+                button_was_pressed = false;
             }
         } else {
-            // Button is released
+            if (button_was_pressed) {
+                Pins::C13::set(HIGH); // LED OFF on release
+            }
             button_was_pressed = false;
         }
 
-        // If the I2C2 bus is stuck busy (e.g. slave holding SDA low), perform a hardware GPIO recovery
-        // if (I2C2::isBusBusy()) {
-        //     I2C2::recoverBus<Pins::B10, Pins::B9, Peripherals::SCL2, Peripherals::SDA2>();
-        //     encoder.configure(2);
-        // }
-        //
-        // // Read AS5600 encoder on PCA9548A multiplexer channel 2
-        // as5600_magnet_status = encoder.readMagnetStatus();
-        // if (as5600_magnet_status == AS5600::MagnetStatus::OK) {
-        //     // Read RPM directly from the driver (uses EMA filter with alpha=0.1f by default)
-        //     // encoder.readRPM(output_rpm);
-        //
-        //     // Optional: read current angle just for debugging/telemetry
-        //     // encoder.readAngle(as5600_angle);
-        //
-        //     // Calculate base motor RPM and rad/s for control loops
-        //     base_motor_rpm = output_rpm * 60.0f; // 60:1 gear ratio
-        //     motor_angular_velocity_rad_s = (output_rpm * 6.0f) * (3.14159265359f / 180.0f);
-        // }
+        doPID();
     }
 }

@@ -33,9 +33,10 @@ namespace STM32F411::MPU6050 {
     class MPU6050 {
         static constexpr unsigned int buffer_size = 14;
         uint8_t m_buffer[buffer_size] = {};
-        float m_pitch = 0.0f;
-        float m_roll = 0.0f;
+        volatile float m_pitch = 0.0f;
+        volatile float m_roll = 0.0f;
         uint32_t last_update_time = 0;
+        volatile bool m_read_in_progress = false;
 
         struct ZeroOffsets {
             float gx;
@@ -71,6 +72,7 @@ namespace STM32F411::MPU6050 {
         };
     static void dmaReadCompleteCallback(void* ctx) {
         auto* instance = static_cast<MPU6050*>(ctx);
+        instance->m_read_in_progress = false;
         instance->update();
     }
     public:
@@ -104,7 +106,7 @@ namespace STM32F411::MPU6050 {
                 constexpr uint8_t int_enable = (1 << 0);
                 i2c::writeRegister(address, Registers::INT_ENABLE, &int_enable, 1);
             }
-            last_update_time = Clock::millis();
+            last_update_time = Clock::micros();
         }
 
 
@@ -147,7 +149,11 @@ namespace STM32F411::MPU6050 {
         }
 
         void beginRead() {
-            i2c::readRegister(address, Registers::ACCEL_XOUT_H, m_buffer, buffer_size, true);
+            if (m_read_in_progress) return;  // Skip if previous DMA read hasn't finished
+            m_read_in_progress = true;
+            if (!i2c::readRegister(address, Registers::ACCEL_XOUT_H, m_buffer, buffer_size, true)) {
+                m_read_in_progress = false;  // I2C failed before DMA started, reset so next EXTI can retry
+            }
         }
 
         void calibrate(const unsigned int sample_size = 1000) {

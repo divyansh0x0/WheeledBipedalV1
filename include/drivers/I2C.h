@@ -7,6 +7,7 @@
 #include "MemoryMap.h"
 #include "Clock.h"
 #include "GPIO.h"
+#include "Interrupt.h"
 
 namespace STM32F411 {
     using I2CWriteCallback = void(*)(void* ctx);
@@ -364,6 +365,11 @@ namespace STM32F411 {
             if (!waitEvent(I2CFlags::ADDRESS_SENT))return false;
             if (use_dma) {
                 MemoryMap::DMAStream *dma_stream = getDMAStreamRead();
+                if (dma_stream == nullptr) {
+                    // Previous DMA still in progress — abort this read gracefully
+                    REG->CR1 |= (1 << 9); // Generate STOP
+                    return false;
+                }
                 dma_stream->setEnabled(false);
                 while (dma_stream->isEnabled()) {
                 };
