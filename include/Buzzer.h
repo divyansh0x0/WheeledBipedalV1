@@ -24,7 +24,7 @@ namespace BipedalV1 {
         void initialize() {
             STM32F411::Pins::B6::enableAlternateFunction<STM32F411::Peripherals::TIMER4>();
             m_pwm.enable();
-            m_pwm.setFrequency(32000);
+            m_pwm.setFrequency(25000);
             m_pwm.setDutyCycle(0);
         }
 

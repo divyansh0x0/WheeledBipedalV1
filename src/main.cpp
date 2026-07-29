@@ -40,7 +40,7 @@ volatile uint32_t t2;
 volatile float speed = 0.0f;
 STM32F411::MPU6050::MPU6050<STM32F411::I2C1, STM32F411::MPU6050::GyroScale::_250, STM32F411::MPU6050::AccelScale::g2>
 mpu6050{};
-BipedalV1::BatteryManager<MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE, 133.0f, 33.0f> battery_manager{};
+BipedalV1::BatteryManager<MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE, 108.52f, 33.0f> battery_manager{};
 BipedalV1::ActuatorManager actuator_manager{};
 BipedalV1::Buzzer buzzer{};
 volatile bool button_is_pressed;
@@ -101,12 +101,6 @@ void doPID() {
     Pins::C13::set(HIGH); // Turn off LED initially (assuming active low)
     volatile uint32_t button_press_start_time = 0;
 
-    // mpu6050.calibrateGyroscope();
-
-    actuator_manager.initialize();
-    actuator_manager.move(0.0f,0.0f);
-    battery_manager.initialize();
-
     while (true) {
         battery_percentage  = battery_manager.getBatteryPercentage();
         BatteryLevel = battery_manager.getBatteryVoltage();
@@ -114,6 +108,12 @@ void doPID() {
         if (mpu_data_ready) {
             mpu_data_ready = false;
             mpu6050.beginRead();
+        }
+        if (Clock::millis() -  t2 > 100) {
+            duty += 0.05f;
+        }
+        if (duty > 1.0f) {
+            duty = 0.0f;
         }
 
         // --- NON-BLOCKING BUTTON DEBOUNCE & LONG PRESS HANDLING ---
@@ -149,5 +149,7 @@ void doPID() {
             button_was_pressed = false;
         }
         doPID();
+        buzzer.setDutyCycle(duty);
+
     }
 }

@@ -28,3 +28,6 @@ Using st-link:
 ```
 cmake --build cmake-build-debug/ --target BipedalV1 && st-flash write cmake-build-debug/BipedalV1.bin 0x08000000
 ```
+
+
+The buzzer somehow works when i short it 
