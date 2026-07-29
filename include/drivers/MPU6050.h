@@ -39,12 +39,12 @@ namespace STM32F411::MPU6050 {
         volatile bool m_read_in_progress = false;
 
         struct ZeroOffsets {
-            float gx;
-            float gy;
-            float gz;
-            float ax;
-            float ay;
-        } m_zero_offsets;
+            float gx = 0.0f;
+            float gy = 0.0f;
+            float gz = 0.0f;
+            float ax = -0.0384077132f;
+            float ay = -0.0255993661f;
+        } m_zero_offsets{-1.64820683,-0.403819919,0.0374770537,0.111236326, -0.100898929};
 
         enum Registers : uint8_t {
             SMPRT_DIV = 25,
@@ -70,11 +70,13 @@ namespace STM32F411::MPU6050 {
             GYRO_ZOUT_L,
             PWR_MGMT_1 = 107
         };
-    static void dmaReadCompleteCallback(void* ctx) {
-        auto* instance = static_cast<MPU6050*>(ctx);
-        instance->m_read_in_progress = false;
-        instance->update();
-    }
+
+        static void dmaReadCompleteCallback(void *ctx) {
+            auto *instance = static_cast<MPU6050 *>(ctx);
+            instance->m_read_in_progress = false;
+            instance->update();
+        }
+
     public:
         static constexpr unsigned int address = 0x68;
 
@@ -120,8 +122,11 @@ namespace STM32F411::MPU6050 {
                 last_update_time = Clock::micros();
             }
             uint32_t current_time = Clock::micros();
-            auto dt = static_cast<float>(current_time - last_update_time)/1000'000.0f;
-            const float alpha = 0.98f;
+            auto dt = static_cast<float>(current_time - last_update_time) / 1000'000.0f;
+            
+            // Fixed time constant tau = 0.5s for the filter
+            constexpr float tau = 0.5f;
+            const float alpha = tau / (tau + dt);
             float ax = getAccelX() - m_zero_offsets.ax;
             float ay = getAccelY() - m_zero_offsets.ay;
             float az = getAccelZ(); // Assuming Z is roughly 1g when flat
@@ -149,15 +154,35 @@ namespace STM32F411::MPU6050 {
         }
 
         void beginRead() {
-            if (m_read_in_progress) return;  // Skip if previous DMA read hasn't finished
+            if (m_read_in_progress) return; // Skip if previous DMA read hasn't finished
             m_read_in_progress = true;
             if (!i2c::readRegister(address, Registers::ACCEL_XOUT_H, m_buffer, buffer_size, true)) {
-                m_read_in_progress = false;  // I2C failed before DMA started, reset so next EXTI can retry
+                m_read_in_progress = false; // I2C failed before DMA started, reset so next EXTI can retry
             }
         }
 
-        void calibrate(const unsigned int sample_size = 1000) {
+        void calibrateGyroscope(const unsigned int sample_size = 4000) {
             float sum_gx = 0, sum_gy = 0, sum_gz = 0;
+            for (unsigned int i = 0; i < sample_size; i++) {
+                // Force a blocking read for calibration
+                i2c::readRegister(address, Registers::ACCEL_XOUT_H, m_buffer, buffer_size, false);
+
+                // Accumulate raw scaled values
+                sum_gx += getGyroX();
+                sum_gy += getGyroY();
+                sum_gz += getGyroZ();
+                // Small delay to get fresh samples (at 1kHz sample rate, 1ms is fine)
+                Clock::delayMillis(1);
+            }
+
+            // Average the samples to find the constant error
+            const auto sample_size_f = static_cast<float>(sample_size);
+            m_zero_offsets.gx = sum_gx / sample_size_f;
+            m_zero_offsets.gy = sum_gy / sample_size_f;
+            m_zero_offsets.gz = sum_gz / sample_size_f;
+
+        }
+        void calibrateAccelerometer(const unsigned int sample_size = 4000) {
             float sum_ax = 0, sum_ay = 0;
 
             for (unsigned int i = 0; i < sample_size; i++) {
@@ -167,11 +192,6 @@ namespace STM32F411::MPU6050 {
                 // Accumulate raw scaled values
                 sum_ax += getAccelX();
                 sum_ay += getAccelY();
-
-                sum_gx += getGyroX();
-                sum_gy += getGyroY();
-                sum_gz += getGyroZ();
-
                 // Small delay to get fresh samples (at 1kHz sample rate, 1ms is fine)
                 Clock::delayMillis(1);
             }
@@ -180,10 +200,6 @@ namespace STM32F411::MPU6050 {
             const auto sample_size_f = static_cast<float>(sample_size);
             m_zero_offsets.ax = sum_ax / sample_size_f;
             m_zero_offsets.ay = sum_ay / sample_size_f;
-
-            m_zero_offsets.gx = sum_gx / sample_size_f;
-            m_zero_offsets.gy = sum_gy / sample_size_f;
-            m_zero_offsets.gz = sum_gz / sample_size_f;
         }
 
         [[nodiscard]] float getAccelX() const {
@@ -203,15 +219,15 @@ namespace STM32F411::MPU6050 {
         }
 
         [[nodiscard]] float getGyroX() const {
-            return static_cast<int16_t>(m_buffer[8] << 8 | m_buffer[9]) / getGyroScaleFactor();
+            return (static_cast<int16_t>(m_buffer[8] << 8 | m_buffer[9]) / getGyroScaleFactor())-m_zero_offsets.gx;
         }
 
         [[nodiscard]] float getGyroY() const {
-            return static_cast<int16_t>(m_buffer[10] << 8 | m_buffer[11]) / getGyroScaleFactor();
+            return static_cast<int16_t>(m_buffer[10] << 8 | m_buffer[11]) / getGyroScaleFactor()-m_zero_offsets.gy;
         }
 
         [[nodiscard]] float getGyroZ() const {
-            return static_cast<int16_t>(m_buffer[12] << 8 | m_buffer[13]) / getGyroScaleFactor();
+            return static_cast<int16_t>(m_buffer[12] << 8 | m_buffer[13]) / getGyroScaleFactor()-m_zero_offsets.gz;
         }
 
         [[nodiscard]] float getRoll() const { return m_roll; }

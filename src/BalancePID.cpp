@@ -14,7 +14,17 @@ namespace BipedalV1 {
         m_roll.kd = Kd_roll;
     }
 
-    float BalancePID::getPitchPID(float pitch) {
+    void BalancePID::reset() {
+        m_pitch.integral = 0;
+        m_pitch.last_error = 0;
+        m_pitch.last_time = 0;
+        
+        m_roll.integral = 0;
+        m_roll.last_error = 0;
+        m_roll.last_time = 0;
+    }
+
+    float BalancePID::getPitchPID(float pitch, float gyro_y) {
         const uint32_t now = STM32F411::Clock::micros();
         if (m_pitch.last_time == 0) {
             m_pitch.last_time = now;
@@ -30,7 +40,8 @@ namespace BipedalV1 {
         m_pitch.integral += error * dt;
         m_pitch.integral = clamp(m_pitch.integral, -m_pitch.integral_max, m_pitch.integral_max);
 
-        const float derivative = (error - m_pitch.last_error) / dt;
+        // Derivative of error (target - angle) is -d(angle)/dt, which is -gyro_y
+        const float derivative = -gyro_y;
 
         const float output = m_pitch.kp * error + m_pitch.ki * m_pitch.integral + m_pitch.kd * derivative;
 
@@ -41,7 +52,7 @@ namespace BipedalV1 {
         return clamp(output, -m_pitch.output_max, m_pitch.output_max);
     }
 
-    float BalancePID::getRollPID(float roll) {
+    float BalancePID::getRollPID(const float roll, const float gyro_x) {
         const uint32_t now = STM32F411::Clock::micros();
         if (m_roll.last_time == 0) {
             m_roll.last_time = now;
@@ -57,7 +68,8 @@ namespace BipedalV1 {
         m_roll.integral += error * dt;
         m_roll.integral = clamp(m_roll.integral, -m_roll.integral_max, m_roll.integral_max);
 
-        const float derivative = (error - m_roll.last_error) / dt;
+        // Derivative of error (target - angle) is -d(angle)/dt, which is -gyro_x
+        const float derivative = -gyro_x;
 
         const float output = m_roll.kp * error + m_roll.ki * m_roll.integral + m_roll.kd * derivative;
 

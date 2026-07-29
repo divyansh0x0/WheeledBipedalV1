@@ -46,17 +46,19 @@ BipedalV1::Buzzer buzzer{};
 volatile bool button_is_pressed;
 volatile bool mpu_data_ready = false;
 STM32F411::GPIOStatus status = STM32F411::LOW;
-BipedalV1::BalancePID balance_pid{0.01f, 0.0f, 0.0f, 0, 0, 0};
+BipedalV1::BalancePID balance_pid{1350.0f/10000.0f, 0.0f/10000.0f, 0.0f/10000.0f, 0, 0, 0};
 volatile float pid_output = 0.0f;
 
 float MAX_ROLL_ANGLE = 30.0f;
-
+volatile float gyro_x = 0;
 void doPID() {
     const float roll = mpu6050.getRoll();
+    gyro_x = mpu6050.getGyroX();
     if (roll > MAX_ROLL_ANGLE || roll < -MAX_ROLL_ANGLE) {
         pid_output = 0.0f;
+        balance_pid.reset();
     } else {
-        pid_output = balance_pid.getRollPID(roll);
+        pid_output = balance_pid.getRollPID(mpu6050.getRoll(), mpu6050.getGyroX());
     }
     actuator_manager.move(pid_output, pid_output);
 }
@@ -95,6 +97,7 @@ void doPID() {
     Pins::C13::set(HIGH); // Turn off LED initially (assuming active low)
     volatile uint32_t button_press_start_time = 0;
 
+    // mpu6050.calibrateGyroscope();
 
     while (true) {
         // --- MPU6050 DMA READ (triggered by EXTI data-ready flag) ---
@@ -123,7 +126,7 @@ void doPID() {
                 Pins::C13::set(HIGH); // LED OFF after blink
 
                 // Calibrate IMU
-                mpu6050.calibrate();
+                mpu6050.calibrateAccelerometer();
 
                 // Wait until user releases the button to avoid re-triggering
                 while (Pins::A0::getInputState() == LOW);
@@ -135,7 +138,6 @@ void doPID() {
             }
             button_was_pressed = false;
         }
-
         doPID();
     }
 }
