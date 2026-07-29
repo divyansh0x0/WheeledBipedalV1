@@ -46,7 +46,7 @@ BipedalV1::Buzzer buzzer{};
 volatile bool button_is_pressed;
 volatile bool mpu_data_ready = false;
 STM32F411::GPIOStatus status = STM32F411::LOW;
-BipedalV1::BalancePID balance_pid{1350.0f/10000.0f, 0.0f/10000.0f, 0.0f/10000.0f, 0, 0, 0};
+BipedalV1::BalancePID balance_pid{1350.0f/10000.0f, 0.0f/10000.0f, 40.0f/10000.0f, 0, 0, 0};
 volatile float pid_output = 0.0f;
 
 float MAX_ROLL_ANGLE = 30.0f;
