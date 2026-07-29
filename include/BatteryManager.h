@@ -20,7 +20,7 @@ namespace BipedalV1 {
             return adc.buffer[0];
         }
         constexpr float getBatteryVoltage() const {
-            const float pin_voltage = getADCValue() /4095.0f * 3.3;
+            const float pin_voltage = getADCValue() /4095.0f * 3.3f;
             return pin_voltage * Resistor1/Resistor2;
         }
         constexpr float getBatteryPercentage() const {

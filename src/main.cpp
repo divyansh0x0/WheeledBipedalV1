@@ -48,7 +48,7 @@ volatile bool mpu_data_ready = false;
 STM32F411::GPIOStatus status = STM32F411::LOW;
 BipedalV1::BalancePID balance_pid{1350.0f/10000.0f, 0.0f/10000.0f, 40.0f/10000.0f, 0, 0, 0};
 volatile float pid_output = 0.0f;
-
+volatile float BatteryLevel = 0;
 float MAX_ROLL_ANGLE = 30.0f;
 volatile float gyro_x = 0;
 void doPID() {
@@ -83,10 +83,14 @@ void doPID() {
     Pins::B7::enableAlternateFunction<Peripherals::SDA1>();
 
 
-    mpu6050.configure(true);
-    battery_manager.initialize();
     actuator_manager.initialize();
     buzzer.initialize();
+
+    // Give MPU6050 and other sensors time to power up and stabilize
+    STM32F411::Clock::delayMillis(500);
+
+    mpu6050.configure(true);
+    battery_manager.initialize();
 
     mpu6050.beginRead();
     InterruptManager::attachEXTIInterrupt(InterruptManager::EXTILine::Line5, [] { mpu_data_ready = true; },
@@ -99,7 +103,13 @@ void doPID() {
 
     // mpu6050.calibrateGyroscope();
 
+    actuator_manager.initialize();
+    actuator_manager.move(0.0f,0.0f);
+    battery_manager.initialize();
+
     while (true) {
+        battery_percentage  = battery_manager.getBatteryPercentage();
+        BatteryLevel = battery_manager.getBatteryVoltage();
         // --- MPU6050 DMA READ (triggered by EXTI data-ready flag) ---
         if (mpu_data_ready) {
             mpu_data_ready = false;
