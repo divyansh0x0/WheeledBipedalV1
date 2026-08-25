@@ -51,18 +51,36 @@ BipedalV1/
 
 The following hardware connections are configured in the software abstraction layer:
 
-- **PA0**: User Button (Input, Pull-Up, Active Low)
-- **PA1**: Left Wheel Motor PWM (Timer 2, Channel 2)
-- **PA2**: Right Wheel Motor PWM (Timer 2, Channel 3)
-- **PA4**: Phased Anti-lock PWM Enable (Output)
-- **PB0**: Battery Voltage Monitoring (ADC1)
-- **PB5**: MPU6050 Data Ready Interrupt (EXTI Line 5, Rising Edge)
-- **PB6**: Buzzer PWM (Timer 4, Channel 1)
+Motor:
+- **PA1**: Left Wheel Motor pwm for DIR  (Timer 5, Channel 2) [Phased Anti-lock PWM]
+- **PA2**: Right Wheel Motor pwm for DIR (Timer 5, Channel 3) [Phased Anti-lock PWM]
+- **PA0**: Left Hip Motor PWM (Timer 5, Channel 1) [Sign Magnitude PWM]
+- **PA3**: Right Hip Motor PWM (Timer 5, Channel 4) [Sign Magnitude PWM]
+- **PA5**: Left Hip Motor Enable (Output)
+- **PA6**: Left Wheel Motor Enable (Output)
+- **PA7**: Right Wheel Motor Enable (Output)
+- **PA8**: Right Hip Motor Enable(Output)
+
+MPU:
 - **PB7**: MPU6050 SDA (I2C1)
 - **PB8**: MPU6050 SCL (I2C1)
+- **PB5**: EXTI5
+Multiplexer:
 - **PB9**: Multiplexer SDA (I2C2)
 - **PB10**: Multiplexer SCL (I2C2)
+
+Utility:
+- **PA4**: Battery Voltage Monitoring (ADC1)
+- **PB0**: Fan PWM
+- **PB1**: Buzzer PWM (Timer 4, Channel 1)
 - **PC13**: Onboard LED (Output, Active Low)
+NRF24L01:
+- **PB13**: SPI2 SCK
+- **PB14**: SPI2 MISO
+- **PB15**: SPI2 MOSI
+- **PB12**: SPI2 Output for CSN
+- **PA15**: GPIO Output for CE
+- **PB4**: EXTI4
 
 ## Build & Flash Instructions
 
