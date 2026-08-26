@@ -67,32 +67,47 @@ static void initSystemClock() {
  * @brief Reset handler called on processor reset.
  */
 extern "C" [[noreturn]] void Reset_Handler(void) {
-    // Enable Cortex-M4F Hardware Floating Point Unit (FPU)
-    // CPACR is located at address 0xE000ED88
+    // 1. Explicitly set the Vector Table Offset Register (VTOR) to Flash Base
+    // Critical if MCU briefly entered the ST ROM bootloader on cold boot.
+    volatile unsigned int *SCB_VTOR = (volatile unsigned int *) 0xE000ED08;
+    *SCB_VTOR = 0x08000000;
+
+    // 2. Enable Cortex-M4F Hardware Floating Point Unit (FPU)
     volatile unsigned int *SCB_CPACR = (volatile unsigned int *) 0xE000ED88;
     *SCB_CPACR |= 0xF << 20; // Set CP10 and CP11 to Full Access
+    
+    // Memory barriers to ensure FPU is enabled before pipeline executes any FP instruction
+    // Without this, the MCU will instantly HardFault (NOCP UsageFault) on cold boot!
+    asm volatile("dsb" ::: "memory");
+    asm volatile("isb" ::: "memory");
+
+    // 3. Initialize System Clocks (HSE/PLL)
     initSystemClock();
 
-    unsigned int *src = &_sidata;
-    unsigned int *dst = &_sdata;
+    // 4. Initialize SRAM Memory (.data and .bss)
+    // Must use volatile pointers so GCC -O3 optimization doesn't delete the copy loops!
+    volatile unsigned int *src = &_sidata;
+    volatile unsigned int *dst = &_sdata;
     while (dst < &_edata) {
         *dst = *src;
         src++;
         dst++;
     }
 
-    src = &_sbss;
-    while (src < &_ebss) {
-        *src = 0;
-        src++;
+    dst = &_sbss;
+    while (dst < &_ebss) {
+        *dst = 0;
+        dst++;
     }
 
+    // 5. Call Global C++ Constructors
     init_func_t *src_func = &_sinit;
     while (src_func < &_einit) {
         (*src_func)();
         src_func++;
     }
 
+    // 6. Enter Main Program
     main();
 
     while (1) {

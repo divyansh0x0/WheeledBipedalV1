@@ -1,0 +1,8 @@
+//
+// Created by divyansh on 8/26/26.
+//
+
+#ifndef BIPEDALV1_FANCONTROLLER_H
+#define BIPEDALV1_FANCONTROLLER_H
+
+#endif //BIPEDALV1_FANCONTROLLER_H
