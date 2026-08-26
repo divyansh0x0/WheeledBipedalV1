@@ -58,6 +58,9 @@ namespace STM32F411::MemoryMap {
      */
     enum class APB2Peripheral : unsigned int {
         TIMER1 = 0,
+        TIMER11 = 18,
+        TIMER10 = 17,
+        TIMER9 = 16,
         USART1 = 4,
         USART6 = 5,
         ADC1 = 8,
@@ -117,7 +120,97 @@ namespace STM32F411::MemoryMap {
             this->ACR = ((this->ACR & ~0b1111) | static_cast<unsigned int>(state)) << latency_pin;
         }
     };
+/**
+     * @brief General-purpose timer peripheral register map.
+     * @details Represents the register layout for TIM9, TIM10, and TIM11.
+     */
+    struct TIMER16 {
+        TIMER16(const TIMER16 &) = delete;
 
+        TIMER16 &operator=(const TIMER16 &) = delete;
+
+        TIMER16(TIMER16 &&) = delete;
+
+        TIMER16 &operator=(TIMER16 &&) = delete;
+
+        volatile register_t CR1; ///< 0x00 TIMx Control Register 1 (TIMx_CR1).
+        volatile const register_t reserved1; ///< 0x1C
+        volatile const register_t reserved2; ///< 0x08
+        volatile register_t DIER; ///< 0x0C TIMx DMA/Interrupt Enable Register (TIMx_DIER).
+        volatile register_t SR; ///< 0x10 TIMx Status Register (TIMx_SR).
+        volatile register_t EGR; ///< 0x14 TIMx Event Generation Register (TIMx_EGR).
+        volatile register_t CCMR1; ///< 0x18 TIMx Capture/Compare Mode Register 1 (TIMx_CCMR1).
+        volatile const register_t reserved3; ///< 0x1C
+        volatile register_t CCER; ///< 0x20 TIMx Capture/Compare Enable Register (TIMx_CCER).
+        volatile register_t CNT; ///< 0x24 TIMx Counter Register (TIMx_CNT).
+        volatile register_t PSC; ///< 0x28 TIMx Prescaler Register (TIMx_PSC).
+        volatile register_t ARR; ///< 0x2C TIMx Auto-Reload Register (TIMx_ARR).
+        volatile const register_t reserved4; ///< 0x30
+        volatile register_t CCR1; ///< 0x34 TIMx Capture/Compare Register 1 (TIMx_CCR1).
+        volatile register_t CCR2; ///< 0x38 TIMx Capture/Compare Register 2 (TIMx_CCR2).
+        /**
+         * @brief Configures the prescaler and auto-reload values of the timer.
+         */
+        // Target frequency in Hz, and your desired max value for 100% duty cycle
+        void setFrequency(uint32_t system_clock, uint32_t target_hz, uint32_t resolution = 1000) {
+            // Formula: PSC = SystemClock / (Frequency * ARR)
+            // We subtract 1 because hardware registers are 0-indexed
+            uint32_t psc_value = (system_clock / (target_hz * resolution)) - 1;
+            uint32_t arr_value = resolution - 1;
+
+            // Write to my actual hardware registers
+            this->PSC = psc_value;
+            this->ARR = arr_value;
+        }
+
+        /**
+         * @brief Configures a specific channel for PWM Mode 1 and enables its output.
+         * @param channel The target timer channel (1 to 4).
+         */
+        void enablePWM(TimerChannel channel) {
+            switch (channel) {
+                case TimerChannel::Channel1:
+                    this->CCMR1 &= ~(0b11 << 0); // Configure channel 1 in output compare mode (CC1S = 00 in TIMx_CCMR1)
+                    this->CCMR1 &= ~(0b111 << 4); // Clear output compare 1 mode configuration bits (OC1M)
+                    this->CCMR1 |= (0b110 << 4); // Set OC1M to PWM Mode 1 (0b110)
+                    this->CCMR1 |= (1 << 3); // Enable Output Compare 1 Preload (OC1PE)
+                    this->CCER |= (1 << 0); // Enable Output Compare 1 output (CC1E in TIMx_CCER)
+                    break;
+                case TimerChannel::Channel2:
+                    this->CCMR1 &= ~(0b11 << 8); // Configure channel 2 in output compare mode (CC2S = 00 in TIMx_CCMR1)
+                    this->CCMR1 &= ~(0b111 << 12); // Clear output compare 2 mode configuration bits (OC2M)
+                    this->CCMR1 |= (0b110 << 12); // Set OC2M to PWM Mode 1 (0b110)
+                    this->CCMR1 |= (1 << 11); // Enable Output Compare 2 Preload (OC2PE)
+                    this->CCER |= (1 << 4); // Enable Output Compare 2 output (CC2E in TIMx_CCER)
+                    break;
+                default:
+                    static_assert("Error: Only Ch1 and Ch2 are supported in TIM9 while TIM10, TIM11 have CH1 only");
+            }
+        }
+
+        /**
+         * @brief Updates the duty cycle value for a specific timer channel.
+         * @param channel The target timer channel (1 to 4).
+         * @param value The compare value written to the Capture/Compare Register (CCR).
+         */
+        void setDutyCycle(TimerChannel channel, unsigned int value) {
+            switch (channel) {
+                case TimerChannel::Channel1: this->CCR1 = value;
+                    break;
+                case TimerChannel::Channel2: this->CCR2 = value;
+                    break;
+                default:
+                    static_assert("Error: Only Ch1 and Ch2 are supported in TIM9 while TIM10, TIM11 have CH1 only");
+            }
+        }
+
+        /**
+         * @brief Enables the timer counter.
+         */
+        void start() {
+            this->CR1 |= (1 << 0); // Set CEN (Counter Enable) bit in TIMx_CR1
+        }
+    };
     /**
      * @brief General-purpose timer peripheral register map.
      * @details Represents the register layout for TIM2, TIM3, and TIM4.
@@ -884,6 +977,12 @@ namespace STM32F411::MemoryMap {
     inline const auto TIMER4 = reinterpret_cast<TIMER *>(0x4000'0800u);
     /** @brief General Purpose Timer 5 on the APB1 Bus (TIM5 base address). */
     inline const auto TIMER5 = reinterpret_cast<TIMER *>(0x4000'0C00u);
+    /** @brief General Purpose Timer 9 on the APB2 Bus (TIM9 base address). */
+    inline const auto TIMER9 = reinterpret_cast<TIMER16*>(0x4001'4800u);
+    /** @brief General Purpose Timer 10 on the APB2 Bus (TIM10 base address). */
+    inline const auto TIMER10 = reinterpret_cast<TIMER16 *>(0x4001'4400u);
+    /** @brief General Purpose Timer 11 on the APB2 Bus (TIM11 base address). */
+    inline const auto TIMER11 = reinterpret_cast<TIMER16 *>(0x4001'4000u);
     /** @brief Reset and Clock Control module on the AHB Bus (RCC base address). */
     inline const auto RCC1 = reinterpret_cast<RCC *>(0x4002'3800u);
 
