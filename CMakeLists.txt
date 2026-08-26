@@ -54,6 +54,7 @@ add_executable(BipedalV1
         startup.cpp
         src/BalancePID.cpp
         src/main.cpp
+        src/drivers/Clock.cpp
 )
 
 set_target_properties(BipedalV1 PROPERTIES SUFFIX ".elf")
