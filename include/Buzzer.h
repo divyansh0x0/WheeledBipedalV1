@@ -15,6 +15,7 @@ namespace BipedalV1 {
         unsigned int last_time = 0;
 
     public:
+        float duty_cycle = 0;
         Buzzer() = default;
 
         Buzzer(Buzzer &&buzzer) = delete;
@@ -24,12 +25,13 @@ namespace BipedalV1 {
         void initialize() {
             STM32F411::Pins::B0::enableAlternateFunction<STM32F411::Peripherals::TIMER3>();
             m_pwm.enable();
+            // Resonant frequency is 4000
             m_pwm.setFrequency(4000);
             m_pwm.setDutyCycle(0);
         }
 
         void setDutyCycle(const float duty_cycle) {
-            m_pwm.setDutyCycle(duty_cycle);
+            this->duty_cycle = duty_cycle;
         }
 
         void play(unsigned int duration_ms) {
@@ -52,7 +54,7 @@ namespace BipedalV1 {
                 return;
             }
 
-            setDutyCycle(0.5);
+            m_pwm.setDutyCycle(this->duty_cycle);
             last_time = STM32F411::Clock::millis();
             buzzer_duration_left -= last_time;
         }

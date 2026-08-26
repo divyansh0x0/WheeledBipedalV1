@@ -65,7 +65,6 @@ void doPID() {
 
 [[noreturn]] int main() {
     using namespace STM32F411;
-    Clock::enable();
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C2);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::GPIOC);
@@ -76,6 +75,7 @@ void doPID() {
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER3);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER5);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB2Peripheral::SYSCFG);
+    Clock::enable();
 
     Pins::C13::enableOutputMode();
 
@@ -86,18 +86,22 @@ void doPID() {
     Pins::B7::enableAlternateFunction<Peripherals::SDA1>();
 
     actuator_manager.initialize();
+    buzzer.initialize();
+
     float speed = -1.0f;
     while (true) {
         const auto t2 = Clock::millis();
-        if (t2 - t1 >= 100) {
+        if (t2 - t1 >= 400) {
             Pins::C13::toggle();
             t1 = Clock::millis();
-            speed += .10f;
+            // buzzer.setDutyCycle(duty);
+            buzzer.play(200);
+            duty += 0.1f;
         }
-        if (speed > 1.0f) {
-            speed = -1.0f;
+        if (duty > 1.0f) {
+            duty = 0.0f;
         }
-
-        actuator_manager.move(speed,speed);
+        buzzer.update();
+        // actuator_manager.move(speed,speed);
     }
 }
