@@ -23,7 +23,7 @@ volatile float actual_voltage_debug = 0.0f; // Useful to watch in CubeMonitor
 volatile unsigned int count = 1000;
 volatile unsigned int frequency = 7000;
 // 6000 to 7600
-volatile float duty = 0;
+volatile float duty = 50;
 volatile int16_t gyroX = 0;
 volatile int16_t gyroY = 0;
 volatile float as5600_angle = 0.0f; // AS5600 angle in degrees (0-360) on MUX channel 2
@@ -36,7 +36,6 @@ volatile uint32_t previous_micros = 0;
 volatile float output_rpm;
 
 volatile uint32_t t1;
-volatile uint32_t t2;
 volatile float speed = 0.0f;
 STM32F411::MPU6050::MPU6050<STM32F411::I2C1, STM32F411::MPU6050::GyroScale::_250, STM32F411::MPU6050::AccelScale::g2>
 mpu6050{};
@@ -46,11 +45,12 @@ BipedalV1::Buzzer buzzer{};
 volatile bool button_is_pressed;
 volatile bool mpu_data_ready = false;
 STM32F411::GPIOStatus status = STM32F411::LOW;
-BipedalV1::BalancePID balance_pid{1350.0f/10000.0f, 0.0f/10000.0f, 40.0f/10000.0f, 0, 0, 0};
+BipedalV1::BalancePID balance_pid{1350.0f / 10000.0f, 0.0f / 10000.0f, 40.0f / 10000.0f, 0, 0, 0};
 volatile float pid_output = 0.0f;
 volatile float BatteryLevel = 0;
 float MAX_ROLL_ANGLE = 30.0f;
 volatile float gyro_x = 0;
+
 void doPID() {
     const float roll = mpu6050.getRoll();
     gyro_x = mpu6050.getGyroX();
@@ -65,6 +65,7 @@ void doPID() {
 
 [[noreturn]] int main() {
     using namespace STM32F411;
+    Clock::enable();
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C2);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::GPIOC);
@@ -72,84 +73,31 @@ void doPID() {
     MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::GPIOA);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::DMA1);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER5);
+    MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER3);
+    MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::TIMER5);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB2Peripheral::SYSCFG);
 
     Pins::C13::enableOutputMode();
-    Pins::A0::enableInputMode(MemoryMap::GPIORegister::Pull::Up);
+
     Pins::B10::enableAlternateFunction<Peripherals::SCL2>();
     Pins::B9::enableAlternateFunction<Peripherals::SDA2>();
 
     Pins::B8::enableAlternateFunction<Peripherals::SCL1>();
     Pins::B7::enableAlternateFunction<Peripherals::SDA1>();
 
-
     actuator_manager.initialize();
-    buzzer.initialize();
-
-    // Give MPU6050 and other sensors time to power up and stabilize
-    STM32F411::Clock::delayMillis(500);
-
-    mpu6050.configure(true);
-    battery_manager.initialize();
-
-    mpu6050.beginRead();
-    InterruptManager::attachEXTIInterrupt(InterruptManager::EXTILine::Line5, [] { mpu_data_ready = true; },
-                                          InterruptManager::EXTISource::GPIOB, InterruptManager::EXTITrigger::RISING);
-    t1 = Clock::millis();
-    t2 = Clock::millis();
-    bool button_was_pressed = false;
-    Pins::C13::set(HIGH); // Turn off LED initially (assuming active low)
-    volatile uint32_t button_press_start_time = 0;
-
+    float speed = -1.0f;
     while (true) {
-        battery_percentage  = battery_manager.getBatteryPercentage();
-        BatteryLevel = battery_manager.getBatteryVoltage();
-        // --- MPU6050 DMA READ (triggered by EXTI data-ready flag) ---
-        if (mpu_data_ready) {
-            mpu_data_ready = false;
-            mpu6050.beginRead();
+        const auto t2 = Clock::millis();
+        if (t2 - t1 >= 100) {
+            Pins::C13::toggle();
+            t1 = Clock::millis();
+            speed += .10f;
         }
-        if (Clock::millis() -  t2 > 100) {
-            duty += 0.05f;
-        }
-        if (duty > 1.0f) {
-            duty = 0.0f;
+        if (speed > 1.0f) {
+            speed = -1.0f;
         }
 
-        // --- NON-BLOCKING BUTTON DEBOUNCE & LONG PRESS HANDLING ---
-        button_is_pressed = (Pins::A0::getInputState() == LOW);
-
-        if (button_is_pressed) {
-            if (!button_was_pressed) {
-                // Button was just pressed down
-                button_was_pressed = true;
-                button_press_start_time = Clock::millis();
-                Pins::C13::set(LOW); // LED ON while held
-            } else if (Clock::millis() - button_press_start_time > 500) {
-                // Held for > 1 second — blink LED 5 times
-                for (int i = 0; i < 5; i++) {
-                    Pins::C13::set(HIGH); // LED OFF (active low)
-                    Clock::delayMillis(200);
-                    Pins::C13::set(LOW); // LED ON
-                    Clock::delayMillis(200);
-                }
-                Pins::C13::set(HIGH); // LED OFF after blink
-
-                // Calibrate IMU
-                mpu6050.calibrateAccelerometer();
-
-                // Wait until user releases the button to avoid re-triggering
-                while (Pins::A0::getInputState() == LOW);
-                button_was_pressed = false;
-            }
-        } else {
-            if (button_was_pressed) {
-                Pins::C13::set(HIGH); // LED OFF on release
-            }
-            button_was_pressed = false;
-        }
-        doPID();
-        buzzer.setDutyCycle(duty);
-
+        actuator_manager.move(speed,speed);
     }
 }

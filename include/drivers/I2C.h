@@ -299,7 +299,7 @@ namespace STM32F411 {
                 return nullptr;
             }
             if (dma_stream) {
-                InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::Stream>(stream_id), [] {
+                InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::DMAStream>(stream_id), [] {
                     finishDMARead();
                     m_read_callback(m_callback_ctx);
                 });
@@ -332,7 +332,7 @@ namespace STM32F411 {
                 return nullptr;
             }
             if (dma_stream) {
-                InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::Stream>(stream_id), [] {
+                InterruptManager::attachDMAInterrupt(static_cast<InterruptManager::DMAStream>(stream_id), [] {
                     finishDMAWrite();
                     m_write_callback(m_callback_ctx);
 

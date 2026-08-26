@@ -4,7 +4,8 @@
 
 #ifndef BIPEDALV1_INTERRUPT_H
 #define BIPEDALV1_INTERRUPT_H
-
+#include<cstdint>
+#include<drivers/MemoryMap.h>
 namespace STM32F411 {
     struct NVICMemoryMap {
         volatile uint32_t ISER[8]; // Offset: 0x000 (Interrupt Set Enable)
@@ -35,9 +36,9 @@ namespace STM32F411 {
     using InterruptCallback = void (*)();
 
     struct InterruptManager {
-        static inline InterruptCallback callbacks[8] = {nullptr};
-
         static constexpr uint8_t TCIF_OFFSETS[4] = {5, 11, 21, 27};
+        static inline InterruptCallback dma_callbacks[8] = {nullptr};
+        static inline InterruptCallback timer_uif_callbacks[10] = {nullptr};
         static inline InterruptCallback exti_callbacks[16] = {nullptr};
 
         enum class EXTITrigger {
@@ -46,7 +47,7 @@ namespace STM32F411 {
             BOTH=2,
         };
         // A single generic attachDMAInterrupt function
-        enum class Stream:uint32_t {
+        enum class DMAStream:uint32_t {
             S0,
             S1,
             S2,
@@ -86,16 +87,27 @@ namespace STM32F411 {
             EXTI2 = 8, // External Interrupt Line 2
             EXTI3 = 9, // External Interrupt Line 3
             EXTI4 = 10, // External Interrupt Line 4
-            DMA1_Stream0 = 11, // DMA1 Stream 0
-            DMA1_Stream1 = 12, // DMA1 Stream 1
-            DMA1_Stream2 = 13, // DMA1 Stream 2
-            DMA1_Stream3 = 14, // DMA1 Stream 3
-            DMA1_Stream4 = 15, // DMA1 Stream 4
-            DMA1_Stream5 = 16, // DMA1 Stream 5
-            DMA1_Stream6 = 17, // DMA1 Stream 6
+            DMA1_Stream0 = 11, // DMA1 DMAStream 0
+            DMA1_Stream1 = 12, // DMA1 DMAStream 1
+            DMA1_Stream2 = 13, // DMA1 DMAStream 2
+            DMA1_Stream3 = 14, // DMA1 DMAStream 3
+            DMA1_Stream4 = 15, // DMA1 DMAStream 4
+            DMA1_Stream5 = 16, // DMA1 DMAStream 5
+            DMA1_Stream6 = 17, // DMA1 DMAStream 6
+            TIM1_UP_TIM10 = 25,
             EXTI9_5 = 23, // External Interrupt Lines 5 through 9
             EXTI15_10 = 40, // External Interrupt Lines 10 through 15
-            DMA1_Stream7 = 47, // DMA1 Stream 7
+            DMA1_Stream7 = 47, // DMA1 DMAStream 7
+        };
+        enum class Timer {
+            _1 = 0,
+            _2,
+            _3,
+            _4,
+            _5,
+            _9 = 8,
+            _10 = 9,
+            _11 = 10
         };
 
         enum class EXTISource {
@@ -117,14 +129,21 @@ namespace STM32F411 {
             NVIC->ICER[irq_num / 32] = (1 << (irq_num % 32));
         }
 
+        static void attachTimer10Interrupt(InterruptCallback callback) {
+            timer_uif_callbacks[9] = callback;
+            setInterruptPriority(IRQn::TIM1_UP_TIM10, Priority::_15);
+            enable(IRQn::TIM1_UP_TIM10);
+        }
+
+
         static constexpr IRQn DMA1_STREAM_IRQS[8] = {
             IRQn::DMA1_Stream0, IRQn::DMA1_Stream1, IRQn::DMA1_Stream2, IRQn::DMA1_Stream3,
             IRQn::DMA1_Stream4, IRQn::DMA1_Stream5, IRQn::DMA1_Stream6, IRQn::DMA1_Stream7,
         };
 
-        static void attachDMAInterrupt(Stream stream, InterruptCallback callback) {
+        static void attachDMAInterrupt(DMAStream stream, InterruptCallback callback) {
             const auto stream_idx = static_cast<uint32_t>(stream);
-            callbacks[stream_idx] = callback;
+            dma_callbacks[stream_idx] = callback;
             enable(DMA1_STREAM_IRQS[stream_idx]);
         }
 

@@ -44,7 +44,7 @@ namespace STM32F411::MPU6050 {
             float gz = 0.0f;
             float ax = -0.0384077132f;
             float ay = -0.0255993661f;
-        } m_zero_offsets{-1.64820683,-0.403819919,0.0374770537,0.111236326, -0.100898929};
+        } m_zero_offsets{-1.64820683f,-0.403819919f,0.0374770537f,0.111236326f, -0.100898929f};
 
         enum Registers : uint8_t {
             SMPRT_DIV = 25,
