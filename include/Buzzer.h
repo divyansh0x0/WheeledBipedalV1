@@ -4,59 +4,58 @@
 
 #ifndef BIPEDALV1_BUZZER_H
 #define BIPEDALV1_BUZZER_H
+
 #include "drivers/GPIO.h"
 #include "drivers/PWM.h"
+#include "drivers/Clock.h"
 
 namespace BipedalV1 {
     class Buzzer {
         STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel3> m_pwm =
                 STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel3>();
-        unsigned int buzzer_duration_left = 0;
-        unsigned int last_time = 0;
+        
+        unsigned int start_time = 0;
+        unsigned int duration = 0;
+        bool is_playing = false;
+        float duty_cycle = 0.5f;
 
     public:
-        float duty_cycle = 0;
         Buzzer() = default;
-
         Buzzer(Buzzer &&buzzer) = delete;
-
         Buzzer(Buzzer &buzzer) = delete;
 
         void initialize() {
             STM32F411::Pins::B0::enableAlternateFunction<STM32F411::Peripherals::TIMER3>();
             m_pwm.enable();
-            // Resonant frequency is 4000
-            m_pwm.setFrequency(4000);
+            m_pwm.setFrequency(4000); // Resonant frequency
             m_pwm.setDutyCycle(0);
         }
 
-        void setDutyCycle(const float duty_cycle) {
-            this->duty_cycle = duty_cycle;
+        void setDutyCycle(const float new_duty_cycle) {
+            this->duty_cycle = new_duty_cycle;
+            if (is_playing) {
+                m_pwm.setDutyCycle(new_duty_cycle);
+            }
         }
 
         void play(unsigned int duration_ms) {
-            this->buzzer_duration_left = duration_ms;
-            last_time = STM32F411::Clock::millis();
-            update();
+            this->duration = duration_ms;
+            this->start_time = STM32F411::Clock::millis();
+            this->is_playing = true;
+            m_pwm.setDutyCycle(this->duty_cycle);
         }
 
         void stop() {
-            this->buzzer_duration_left = 0;
-            update();
+            this->is_playing = false;
+            m_pwm.setDutyCycle(0);
         }
 
         void update() {
-            if (buzzer_duration_left < 10)
-                buzzer_duration_left = 0;
+            if (!is_playing) return;
 
-            if (buzzer_duration_left == 0) {
-                setDutyCycle(0);
-                return;
+            if (STM32F411::Clock::millis() - start_time >= duration) {
+                stop();
             }
-
-            m_pwm.setDutyCycle(this->duty_cycle);
-            last_time = STM32F411::Clock::millis();
-            buzzer_duration_left -= last_time;
         }
     };
 }

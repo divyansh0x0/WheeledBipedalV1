@@ -139,6 +139,7 @@ namespace STM32F411 {
 
 
     template<> struct PeripheralTraits<Peripherals::TIMER3,  Pins::B0> { static constexpr uint8_t af = 2; };
+    template<> struct PeripheralTraits<Peripherals::TIMER3,  Pins::B1> { static constexpr uint8_t af = 2; };
 
     template<> struct PeripheralTraits<Peripherals::TIMER5,  Pins::A0> { static constexpr uint8_t af = 2; };
     template<> struct PeripheralTraits<Peripherals::TIMER5,  Pins::A1> { static constexpr uint8_t af = 2; };

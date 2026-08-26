@@ -2,6 +2,7 @@
 #include "BalancePID.h"
 #include "BatteryManager.h"
 #include "Buzzer.h"
+#include "FanController.h"
 #include "drivers/GPIO.h"
 #include "drivers/ADC.h"
 #include "drivers/Interrupt.h"
@@ -9,45 +10,40 @@
 #include "drivers/MPU6050.h"
 #include "drivers/PWM.h"
 #include "drivers/AS5600MUX.h"
+#include "FanController.h"
 
 // Define the real-world battery limits for a 3S LiPo
 constexpr float MAX_BATTERY_VOLTAGE = 12.6f;
-constexpr float MIN_BATTERY_VOLTAGE = 11.0f;
+constexpr float MIN_BATTERY_VOLTAGE = 10.5f;
 constexpr float MAX_REFERENCE_VOLTAGE = 3.3f;
-
-// The inverse of your divider (133 / 33) to scale the pin voltage back up to battery voltage
-constexpr float VOLTAGE_DIVIDER_RATIO = 133.0f / 33.0f;
 
 volatile float battery_percentage = 0.0f;
 volatile float actual_voltage_debug = 0.0f; // Useful to watch in CubeMonitor
 volatile unsigned int count = 1000;
 volatile unsigned int frequency = 7000;
 // 6000 to 7600
-volatile float duty = 50;
-volatile int16_t gyroX = 0;
-volatile int16_t gyroY = 0;
+volatile float duty = 0;
 volatile float as5600_angle = 0.0f; // AS5600 angle in degrees (0-360) on MUX channel 2
-volatile STM32F411::AS5600::MagnetStatus as5600_magnet_status = STM32F411::AS5600::MagnetStatus::ReadError;
-// Magnet status on MUX channel 2
-volatile float motor_angular_velocity_rad_s = 0.0f; // Output shaft angular velocity in rad/s
-volatile float base_motor_rpm = 0.0f; // Base motor speed in RPM (18000 RPM base / 300 RPM output = 60:1 gear ratio)
-volatile float previous_as5600_angle = 0.0f;
-volatile uint32_t previous_micros = 0;
-volatile float output_rpm;
 
+volatile STM32F411::AS5600::MagnetStatus as5600_magnet_status = STM32F411::AS5600::MagnetStatus::ReadError;
 volatile uint32_t t1;
 volatile float speed = 0.0f;
 STM32F411::MPU6050::MPU6050<STM32F411::I2C1, STM32F411::MPU6050::GyroScale::_250, STM32F411::MPU6050::AccelScale::g2>
 mpu6050{};
-BipedalV1::BatteryManager<MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE, 108.52f, 33.0f> battery_manager{};
+BipedalV1::BatteryManager<MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE, 98.0f, 31.8f> battery_manager{};
 BipedalV1::ActuatorManager actuator_manager{};
 BipedalV1::Buzzer buzzer{};
 volatile bool button_is_pressed;
 volatile bool mpu_data_ready = false;
 STM32F411::GPIOStatus status = STM32F411::LOW;
 BipedalV1::BalancePID balance_pid{1350.0f / 10000.0f, 0.0f / 10000.0f, 40.0f / 10000.0f, 0, 0, 0};
+
 volatile float pid_output = 0.0f;
 volatile float BatteryLevel = 0;
+
+
+BipedalV1::FanController fan_controller{};
+
 float MAX_ROLL_ANGLE = 30.0f;
 volatile float gyro_x = 0;
 
@@ -87,21 +83,31 @@ void doPID() {
 
     actuator_manager.initialize();
     buzzer.initialize();
+    battery_manager.initialize();
+    fan_controller.initialize();
+    
+    // Explicitly enable global interrupts
+    asm volatile("cpsie i");
 
     float speed = -1.0f;
+    int buzzer_count = 0;
+    buzzer.setDutyCycle(0.5f);
+    
+    t1 = Clock::millis(); // Initialize t1 so the timer math doesn't underflow!
+    
     while (true) {
+        battery_percentage = battery_manager.getBatteryPercentage();
+        actual_voltage_debug = battery_manager.getBatteryVoltage();
         const auto t2 = Clock::millis();
-        if (t2 - t1 >= 400) {
+        
+        // Beep 5 times (change < 10 to < 5)
+        if (t2 - t1 >= 100 && buzzer_count < 5) {
+            buzzer.play(50);
             Pins::C13::toggle();
             t1 = Clock::millis();
-            // buzzer.setDutyCycle(duty);
-            buzzer.play(200);
-            duty += 0.1f;
+            buzzer_count++;
         }
-        if (duty > 1.0f) {
-            duty = 0.0f;
-        }
+        
         buzzer.update();
-        // actuator_manager.move(speed,speed);
     }
 }
