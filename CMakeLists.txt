@@ -52,7 +52,10 @@ include_directories(include)
 
 add_executable(BipedalV1
         startup.cpp
+        src/ActuatorManager.cpp
         src/BalancePID.cpp
+        src/Buzzer.cpp
+        src/FanController.cpp
         src/main.cpp
         src/drivers/Clock.cpp
 )
