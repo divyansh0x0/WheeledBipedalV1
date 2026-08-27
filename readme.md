@@ -62,12 +62,13 @@ Motor:
 - **PA8**: Right Hip Motor Enable(Output)
 
 MPU:
-- **PB7**: MPU6050 SDA (I2C1)
-- **PB8**: MPU6050 SCL (I2C1)
-- **PB5**: EXTI5
-Multiplexer:
 - **PB9**: Multiplexer SDA (I2C2)
 - **PB10**: Multiplexer SCL (I2C2)
+- **PB4**: EXTI5
+Multiplexer:
+
+- **PB7**: MPU6050 SDA (I2C1)
+- **PB8**: MPU6050 SCL (I2C1)
 
 Utility:
 - **PA4**: Battery Voltage Monitoring (ADC1)
@@ -80,7 +81,7 @@ NRF24L01:
 - **PB15**: SPI2 MOSI
 - **PB12**: SPI2 Output for CSN
 - **PA15**: GPIO Output for CE
-- **PB4**: EXTI4
+- **PB5**: EXTI5
 
 ## Build & Flash Instructions
 

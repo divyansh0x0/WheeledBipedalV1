@@ -1,6 +1,6 @@
 #include "FanController.h"
 
-namespace BipedalV1 {
+namespace Biped {
 
     void FanController::initialize() {
         // STM32F411::Pins::B1::enableAlternateFunction<STM32F411::Peripherals::TIMER3>();

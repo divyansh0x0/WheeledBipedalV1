@@ -6,7 +6,7 @@
 #include "drivers/PWM.h"
 #include "drivers/Clock.h"
 
-namespace BipedalV1 {
+namespace Biped {
     class Buzzer {
     public:
         enum class Tones {

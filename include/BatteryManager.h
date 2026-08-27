@@ -6,7 +6,7 @@
 #define BIPEDALV1_BATTERYMANAGER_H
 #include "drivers/ADC.h"
 
-namespace BipedalV1 {
+namespace Biped {
     template<float min_battery_voltage, float max_battery_voltage, float Resistor1, float Resistor2>
     class BatteryManager {
         STM32F411::ADC::ADC<STM32F411::Pins::A4> adc = STM32F411::ADC::ADC<STM32F411::Pins::A4>();

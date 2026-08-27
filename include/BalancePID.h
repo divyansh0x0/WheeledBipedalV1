@@ -6,7 +6,7 @@
 #define BIPEDALV1_BALANCEPID_H
 #include "drivers/MPU6050.h"
 
-namespace BipedalV1 {
+namespace Biped {
     struct WheelSpeed {
         float left;
         float right;
@@ -18,7 +18,7 @@ namespace BipedalV1 {
         float integral = 0;
         float integral_max = 0.5f;  // Anti-windup clamp
         float output_max = 1.0f;    // Clamp to [-1, 1] for LockedAntiPhaseSpeed
-        float target = 8.0f;
+        float target = 0.0f;
         float last_error = 0;
         unsigned int last_time = 0;
     };
@@ -31,10 +31,10 @@ namespace BipedalV1 {
             return value < min_val ? min_val : (value > max_val ? max_val : value);
         }
     public:
-        BalancePID(float Kp_roll, float Ki_roll, float Kd_roll, float Kp_pitch, float Ki_pitch, float Kd_pitch);
+        BalancePID(float Kp_roll, float Ki_roll, float Kd_roll, float Kp_pitch, float Ki_pitch, float Kd_pitch, float target_roll_angle,float target_pitch_angle);
 
-        void setTargetPitch(float target) { m_pitch.target = target; }
-        void setTargetRoll(float target) { m_roll.target = target; }
+        void setTargetPitch(const float target) { m_pitch.target = target; }
+        void setTargetRoll(const float target) { m_roll.target = target; }
         
         void reset();
 

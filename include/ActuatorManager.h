@@ -7,7 +7,7 @@
 #include "drivers/GPIO.h"
 #include "drivers/PWM.h"
 
-namespace BipedalV1 {
+namespace Biped {
     class LockedAntiPhaseSpeed {
         float m_normalized_speed;
 
@@ -49,9 +49,14 @@ namespace BipedalV1 {
         ActuatorManager(ActuatorManager&& other) = delete;
         
         void initialize();
+
+        void enableWheels();
+
         void setLeftWheel(const LockedAntiPhaseSpeed speed);
         void setRightWheel(const LockedAntiPhaseSpeed speed);
         void move(const float speed_left, const float speed_right);
+
+        void update();
     };
 }
 #endif //BIPEDALV1_ACTUATORMANAGER_H

@@ -3,8 +3,8 @@
 //
 #include "BalancePID.h"
 
-namespace BipedalV1 {
-    BalancePID::BalancePID(float Kp_roll, float Ki_roll, float Kd_roll, float Kp_pitch, float Ki_pitch, float Kd_pitch) {
+namespace Biped {
+    BalancePID::BalancePID(float Kp_roll, float Ki_roll, float Kd_roll, float Kp_pitch, float Ki_pitch, float Kd_pitch, float target_roll_angle = 0.0f, float target_pitch_angle = 0.0f) {
         m_pitch.kp = Kp_pitch;
         m_pitch.ki = Ki_pitch;
         m_pitch.kd = Kd_pitch;
@@ -12,6 +12,9 @@ namespace BipedalV1 {
         m_roll.kp = Kp_roll;
         m_roll.ki = Ki_roll;
         m_roll.kd = Kd_roll;
+
+        setTargetPitch(target_pitch_angle);
+        setTargetRoll(target_roll_angle);
     }
 
     void BalancePID::reset() {

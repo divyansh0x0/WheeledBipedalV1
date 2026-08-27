@@ -8,7 +8,7 @@
 #include "drivers/GPIO.h"
 #include "drivers/PWM.h"
 
-namespace BipedalV1 {
+namespace Biped {
     class FanController {
         STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel4> m_pwm =
                 STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel4>();

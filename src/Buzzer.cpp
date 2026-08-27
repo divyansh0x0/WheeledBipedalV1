@@ -1,6 +1,6 @@
 #include "Buzzer.h"
 
-namespace BipedalV1 {
+namespace Biped {
 
     void Buzzer::initialize() {
         STM32F411::Pins::B0::enableAlternateFunction<STM32F411::Peripherals::TIMER3>();
@@ -121,6 +121,7 @@ namespace BipedalV1 {
                     if (current_time - m_last_update_time >= pause_duration) {
                         if (m_sequence_step == 5) {
                             m_sequence_step = 0; // Reset loop after long pause
+                            stop();
                         } else {
                             m_sequence_step++;
                         }

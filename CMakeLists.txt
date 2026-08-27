@@ -58,6 +58,7 @@ add_executable(BipedalV1
         src/FanController.cpp
         src/main.cpp
         src/drivers/Clock.cpp
+        src/Context.cpp
 )
 
 set_target_properties(BipedalV1 PROPERTIES SUFFIX ".elf")
