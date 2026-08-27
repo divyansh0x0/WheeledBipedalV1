@@ -1,62 +1,169 @@
-//
-// Created by divyansh on 7/17/26.
-//
-
 #ifndef BIPEDALV1_BUZZER_H
 #define BIPEDALV1_BUZZER_H
 
+#include <stdint.h>
 #include "drivers/GPIO.h"
 #include "drivers/PWM.h"
 #include "drivers/Clock.h"
 
 namespace BipedalV1 {
     class Buzzer {
-        STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel3> m_pwm =
-                STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel3>();
-        
-        unsigned int start_time = 0;
-        unsigned int duration = 0;
-        bool is_playing = false;
-        float duty_cycle = 0.5f;
-
     public:
+        enum class Tones {
+            BEEP_BEEP,
+            SIREN,
+            BATTERY_LOW,
+            MANUAL,
+        };
+
         Buzzer() = default;
         Buzzer(Buzzer &&buzzer) = delete;
-        Buzzer(Buzzer &buzzer) = delete;
+        Buzzer(const Buzzer &buzzer) = delete;
 
         void initialize() {
             STM32F411::Pins::B0::enableAlternateFunction<STM32F411::Peripherals::TIMER3>();
             m_pwm.enable();
-            m_pwm.setFrequency(4000); // Resonant frequency
+            m_pwm.setFrequency(4000); 
             m_pwm.setDutyCycle(0);
         }
 
         void setDutyCycle(const float new_duty_cycle) {
-            this->duty_cycle = new_duty_cycle;
-            if (is_playing) {
+            this->m_duty_cycle = new_duty_cycle;
+            if (m_is_playing) {
                 m_pwm.setDutyCycle(new_duty_cycle);
             }
         }
 
+        void playTone(Tones tone) {
+            m_tone = tone;
+            m_is_playing = true;
+            m_sequence_step = 0;
+            m_last_update_time = STM32F411::Clock::millis();
+
+            // Initial hardware configuration for the chosen sequence
+            switch (tone) {
+                case Tones::BEEP_BEEP:
+                    m_pwm.setFrequency(4000); // Standard beep pitch
+                    m_pwm.setDutyCycle(m_duty_cycle);
+                    break;
+                case Tones::SIREN:
+                    m_current_freq = 1000;    // Start at low pitch
+                    m_sweep_up = true;
+                    m_pwm.setFrequency(m_current_freq);
+                    m_pwm.setDutyCycle(m_duty_cycle);
+                    break;
+                case Tones::BATTERY_LOW:
+                    m_pwm.setFrequency(6000); // High pitch alert
+                    m_pwm.setDutyCycle(m_duty_cycle);
+                    break;
+                default:
+                    break;
+            }
+        }
+
         void play(unsigned int duration_ms) {
-            this->duration = duration_ms;
-            this->start_time = STM32F411::Clock::millis();
-            this->is_playing = true;
-            m_pwm.setDutyCycle(this->duty_cycle);
+            m_tone = Tones::MANUAL;
+            this->m_duration = duration_ms;
+            this->m_last_update_time = STM32F411::Clock::millis();
+            this->m_is_playing = true;
+            m_pwm.setFrequency(4000);
+            m_pwm.setDutyCycle(this->m_duty_cycle);
         }
 
         void stop() {
-            this->is_playing = false;
-            m_pwm.setDutyCycle(0);
+            this->m_is_playing = false;
+            m_pwm.setDutyCycle(0); // Instantly silences the hardware output
         }
 
         void update() {
-            if (!is_playing) return;
+            if (!m_is_playing) return;
 
-            if (STM32F411::Clock::millis() - start_time >= duration) {
-                stop();
+            const uint64_t current_time = STM32F411::Clock::millis();
+
+            switch (m_tone) {
+                case Tones::MANUAL:
+                    if (current_time - m_last_update_time >= m_duration) {
+                        stop();
+                    }
+                    break;
+
+                case Tones::BEEP_BEEP:
+                    // Step 0: Beep 1 (ON)  - 100ms
+                    // Step 1: Pause (OFF)  - 100ms
+                    // Step 2: Beep 2 (ON)  - 100ms
+                    // Step 3: Done
+                    if (m_sequence_step == 0 && (current_time - m_last_update_time >= 100)) {
+                        m_pwm.setDutyCycle(0); // Hardware off
+                        m_last_update_time = current_time;
+                        m_sequence_step++;
+                    } else if (m_sequence_step == 1 && (current_time - m_last_update_time >= 100)) {
+                        m_pwm.setDutyCycle(m_duty_cycle); // Hardware on
+                        m_last_update_time = current_time;
+                        m_sequence_step++;
+                    } else if (m_sequence_step == 2 && (current_time - m_last_update_time >= 100)) {
+                        stop();
+                    }
+                    break;
+
+                case Tones::SIREN:
+                    // Continuously sweeps the ARR (frequency) register up and down
+                    if (current_time - m_last_update_time >= 5) { // 5ms step interval
+                        m_last_update_time = current_time;
+                        
+                        if (m_sweep_up) {
+                            m_current_freq += 20;
+                            if (m_current_freq >= 3000) m_sweep_up = false;
+                        } else {
+                            m_current_freq -= 20;
+                            if (m_current_freq <= 1000) m_sweep_up = true;
+                        }
+                        
+                        // Modifies the hardware Auto-Reload Register dynamically
+                        m_pwm.setFrequency(m_current_freq); 
+                    }
+                    break;
+
+                case Tones::BATTERY_LOW:
+                    // 3 rapid, high-pitched chirps followed by a long pause, looped indefinitely
+                    if (m_sequence_step % 2 == 0) {
+                        // Even steps are ON (Chirps)
+                        if (current_time - m_last_update_time >= 50) {
+                            m_pwm.setDutyCycle(0);
+                            m_last_update_time = current_time;
+                            m_sequence_step++;
+                        }
+                    } else {
+                        // Odd steps are OFF (Pauses)
+                        unsigned int pause_duration = (m_sequence_step == 5) ? 1000 : 50; 
+                        
+                        if (current_time - m_last_update_time >= pause_duration) {
+                            if (m_sequence_step == 5) {
+                                m_sequence_step = 0; // Reset loop after long pause
+                            } else {
+                                m_sequence_step++;
+                            }
+                            m_pwm.setDutyCycle(m_duty_cycle);
+                            m_last_update_time = current_time;
+                        }
+                    }
+                    break;
             }
         }
+
+    private:
+        STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel3> m_pwm;
+        
+        uint64_t m_last_update_time = 0;
+        unsigned int m_duration = 0;
+        float m_duty_cycle = 0.5f;
+        
+        Tones m_tone = Tones::MANUAL;
+        bool m_is_playing = false;
+        
+        // State tracking variables
+        uint8_t m_sequence_step = 0;
+        unsigned int m_current_freq = 1000;
+        bool m_sweep_up = true;
     };
 }
 #endif //BIPEDALV1_BUZZER_H

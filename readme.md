@@ -105,3 +105,5 @@ cmake --build cmake-build-debug/ --target BipedalV1 && st-flash write cmake-buil
 - `programming manual.pdf` — STM32F411 Programming Manual
 - `DataSheet.pdf` — STM32F411 Datasheet
 - `Alternate Function Table.pdf` — GPIO Alternate Function Mappings
+- [Finite State Machines (FSM) in Embedded Systems](https://www.embeddedrelated.com/showarticle/1625.php)
+- [Control System (CTMS)](https://ctms.engin.umich.edu/CTMS/index.php?example=InvertedPendulum&section=ControlPID)

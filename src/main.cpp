@@ -31,14 +31,14 @@ volatile float speed = 0.0f;
 STM32F411::MPU6050::MPU6050<STM32F411::I2C1, STM32F411::MPU6050::GyroScale::_250, STM32F411::MPU6050::AccelScale::g2>
 mpu6050{};
 BipedalV1::BatteryManager<MIN_BATTERY_VOLTAGE, MAX_BATTERY_VOLTAGE, 98.0f, 31.8f> battery_manager{};
-BipedalV1::ActuatorManager actuator_manager{};
-BipedalV1::Buzzer buzzer{};
-volatile bool button_is_pressed;
-volatile bool mpu_data_ready = false;
-STM32F411::GPIOStatus status = STM32F411::LOW;
-BipedalV1::BalancePID balance_pid{1350.0f / 10000.0f, 0.0f / 10000.0f, 40.0f / 10000.0f, 0, 0, 0};
+static BipedalV1::ActuatorManager actuator_manager{};
+static BipedalV1::Buzzer buzzer{};
+static volatile bool button_is_pressed;
+static volatile bool mpu_data_ready = false;
+static STM32F411::GPIOStatus status = STM32F411::LOW;
+static BipedalV1::BalancePID balance_pid{1350.0f / 10000.0f, 0.0f / 10000.0f, 40.0f / 10000.0f, 0, 0, 0};
 
-volatile float pid_output = 0.0f;
+static volatile float pid_output = 0.0f;
 volatile float BatteryLevel = 0;
 
 
@@ -90,24 +90,32 @@ void doPID() {
     asm volatile("cpsie i");
 
     float speed = -1.0f;
-    int buzzer_count = 0;
     buzzer.setDutyCycle(0.5f);
     
     t1 = Clock::millis(); // Initialize t1 so the timer math doesn't underflow!
-    
+    Clock::delayMillis(1000);
+    battery_percentage = battery_manager.getBatteryPercentage();
+
+    if (battery_percentage < 20) {
+        buzzer.playTone(BipedalV1::Buzzer::Tones::BATTERY_LOW);
+    }
+    else {
+        buzzer.playTone(BipedalV1::Buzzer::Tones::MANUAL);
+        buzzer.stop();
+    }
     while (true) {
+
         battery_percentage = battery_manager.getBatteryPercentage();
         actual_voltage_debug = battery_manager.getBatteryVoltage();
         const auto t2 = Clock::millis();
         
         // Beep 5 times (change < 10 to < 5)
-        if (t2 - t1 >= 100 && buzzer_count < 5) {
-            buzzer.play(50);
+        if (t2 - t1 >= 100) {
             Pins::C13::toggle();
             t1 = Clock::millis();
-            buzzer_count++;
         }
         
         buzzer.update();
+        fan_controller.setDutyCycle(0);
     }
 }

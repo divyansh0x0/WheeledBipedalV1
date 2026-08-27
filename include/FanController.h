@@ -29,7 +29,7 @@ namespace BipedalV1 {
         }
 
         void setDutyCycle(const float duty_cycle) {
-            // m_pwm.setDutyCycle(duty_cycle);
+            // m_pwm.setDutyCycle(m_duty_cycle);
             STM32F411::Pins::B1::set(STM32F411::HIGH);
         }
     };
