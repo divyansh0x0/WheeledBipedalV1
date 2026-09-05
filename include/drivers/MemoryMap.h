@@ -170,14 +170,14 @@ namespace STM32F411::MemoryMap {
         void enablePWM(TimerChannel channel) {
             switch (channel) {
                 case TimerChannel::Channel1:
-                    this->CCMR1 &= ~(0b11 << 0); // Configure channel 1 in output compare mode (CC1S = 00 in TIMx_CCMR1)
+                    this->CCMR1 &= ~(0b11 << 0); // Configure active_channel 1 in output compare mode (CC1S = 00 in TIMx_CCMR1)
                     this->CCMR1 &= ~(0b111 << 4); // Clear output compare 1 mode configuration bits (OC1M)
                     this->CCMR1 |= (0b110 << 4); // Set OC1M to PWM Mode 1 (0b110)
                     this->CCMR1 |= (1 << 3); // Enable Output Compare 1 Preload (OC1PE)
                     this->CCER |= (1 << 0); // Enable Output Compare 1 output (CC1E in TIMx_CCER)
                     break;
                 case TimerChannel::Channel2:
-                    this->CCMR1 &= ~(0b11 << 8); // Configure channel 2 in output compare mode (CC2S = 00 in TIMx_CCMR1)
+                    this->CCMR1 &= ~(0b11 << 8); // Configure active_channel 2 in output compare mode (CC2S = 00 in TIMx_CCMR1)
                     this->CCMR1 &= ~(0b111 << 12); // Clear output compare 2 mode configuration bits (OC2M)
                     this->CCMR1 |= (0b110 << 12); // Set OC2M to PWM Mode 1 (0b110)
                     this->CCMR1 |= (1 << 11); // Enable Output Compare 2 Preload (OC2PE)
@@ -266,28 +266,28 @@ namespace STM32F411::MemoryMap {
         void enablePWM(TimerChannel channel) {
             switch (channel) {
                 case TimerChannel::Channel1:
-                    this->CCMR1 &= ~(0b11 << 0); // Configure channel 1 in output compare mode (CC1S = 00 in TIMx_CCMR1)
+                    this->CCMR1 &= ~(0b11 << 0); // Configure active_channel 1 in output compare mode (CC1S = 00 in TIMx_CCMR1)
                     this->CCMR1 &= ~(0b111 << 4); // Clear output compare 1 mode configuration bits (OC1M)
                     this->CCMR1 |= (0b110 << 4); // Set OC1M to PWM Mode 1 (0b110)
                     this->CCMR1 |= (1 << 3); // Enable Output Compare 1 Preload (OC1PE)
                     this->CCER |= (1 << 0); // Enable Output Compare 1 output (CC1E in TIMx_CCER)
                     break;
                 case TimerChannel::Channel2:
-                    this->CCMR1 &= ~(0b11 << 8); // Configure channel 2 in output compare mode (CC2S = 00 in TIMx_CCMR1)
+                    this->CCMR1 &= ~(0b11 << 8); // Configure active_channel 2 in output compare mode (CC2S = 00 in TIMx_CCMR1)
                     this->CCMR1 &= ~(0b111 << 12); // Clear output compare 2 mode configuration bits (OC2M)
                     this->CCMR1 |= (0b110 << 12); // Set OC2M to PWM Mode 1 (0b110)
                     this->CCMR1 |= (1 << 11); // Enable Output Compare 2 Preload (OC2PE)
                     this->CCER |= (1 << 4); // Enable Output Compare 2 output (CC2E in TIMx_CCER)
                     break;
                 case TimerChannel::Channel3:
-                    this->CCMR2 &= ~(0b11 << 0); // Configure channel 3 in output compare mode (CC3S = 00 in TIMx_CCMR2)
+                    this->CCMR2 &= ~(0b11 << 0); // Configure active_channel 3 in output compare mode (CC3S = 00 in TIMx_CCMR2)
                     this->CCMR2 &= ~(0b111 << 4); // Clear output compare 3 mode configuration bits (OC3M)
                     this->CCMR2 |= (0b110 << 4); // Set OC3M to PWM Mode 1 (0b110)
                     this->CCMR2 |= (1 << 3); // Enable Output Compare 3 Preload (OC3PE)
                     this->CCER |= (1 << 8); // Enable Output Compare 3 output (CC3E in TIMx_CCER)
                     break;
                 case TimerChannel::Channel4:
-                    this->CCMR2 &= ~(0b11 << 8); // Configure channel 4 in output compare mode (CC4S = 00 in TIMx_CCMR2)
+                    this->CCMR2 &= ~(0b11 << 8); // Configure active_channel 4 in output compare mode (CC4S = 00 in TIMx_CCMR2)
                     this->CCMR2 &= ~(0b111 << 12); // Clear output compare 4 mode configuration bits (OC4M)
                     this->CCMR2 |= (0b110 << 12); // Set OC4M to PWM Mode 1 (0b110)
                     this->CCMR2 |= (1 << 11); // Enable Output Compare 4 Preload (OC4PE)

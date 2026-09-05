@@ -66,10 +66,12 @@ MPU:
 - **PB10**: Multiplexer SCL (I2C2)
 - **PB4**: EXTI5
 Multiplexer:
+- **PB6**: MPU6050 SDA (I2C1)
+- **PB7**: MPU6050 SCL (I2C1)
 
-- **PB7**: MPU6050 SDA (I2C1)
-- **PB8**: MPU6050 SCL (I2C1)
-
+CurrentSensor:
+- **PB8** - SDA3
+- **PA8** - SCL3
 Utility:
 - **PA4**: Battery Voltage Monitoring (ADC1)
 - **PB0**: Fan PWM

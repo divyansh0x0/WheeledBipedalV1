@@ -57,7 +57,17 @@ namespace STM32F411 {
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
             static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
         };
+        struct SCL3 {
+            static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
+            static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+        };
 
+        struct SDA3 {
+            static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
+            static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+        };
 
         struct SCL2 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;

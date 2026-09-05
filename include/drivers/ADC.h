@@ -105,7 +105,7 @@ namespace STM32F411::ADC {
             auto adc = MemoryMap::ADC;
             MemoryMap::RCC1->enablePeripheral(MemoryMap::AHB1Peripheral::DMA2);
 
-            // Only stream 4 and 0 can be used with ADC for data transfer both at channel 1
+            // Only stream 4 and 0 can be used with ADC for data transfer both at active_channel 1
             MemoryMap::DMAStream *dma_stream = MemoryMap::DMA2->STREAMS[0].isEnabled()
                                                    ? &MemoryMap::DMA2->STREAMS[4]
                                                    : &MemoryMap::DMA2->STREAMS[0];

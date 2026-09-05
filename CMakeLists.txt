@@ -59,6 +59,7 @@ add_executable(BipedalV1
         src/main.cpp
         src/drivers/Clock.cpp
         src/Context.cpp
+        src/INA219.cpp
 )
 
 set_target_properties(BipedalV1 PROPERTIES SUFFIX ".elf")
