@@ -45,68 +45,41 @@ namespace Biped {
             return;
         }
         const unsigned int curr_time = Clock::micros();
-        if (curr_time - last_read_time < 400) {
+        if (curr_time - last_read_time < 100) {
             return;
         }
         last_read_time = curr_time;
-        
+
         bool success = false;
-        
+        const unsigned int index= this->current_ina219_index;
         switch (current_state) {
             case INA219State::SHUNT_0:
-                success = i2c::readRegister(ina219_data_arr[0].address, 
+                success = i2c::readRegister(ina219_data_arr[index].address,
                                             static_cast<uint8_t>(INA219MemoryMap::shunt_voltage),
-                                            &ina219_data_arr[0].buffer[0], 2, true);
+                                            &ina219_data_arr[index].buffer[0], 2, true);
                 current_state = INA219State::BUS_0;
                 break;
-                
+
             case INA219State::BUS_0:
-                success = i2c::readRegister(ina219_data_arr[0].address, 
+                success = i2c::readRegister(ina219_data_arr[index].address,
                                             static_cast<uint8_t>(INA219MemoryMap::bus_voltage),
-                                            &ina219_data_arr[0].buffer[2], 2, true);
+                                            &ina219_data_arr[index].buffer[2], 2, true);
                 current_state = INA219State::POWER_0;
                 break;
 
             case INA219State::POWER_0:
-                success = i2c::readRegister(ina219_data_arr[0].address, 
+                success = i2c::readRegister(ina219_data_arr[index].address,
                                             static_cast<uint8_t>(INA219MemoryMap::power),
-                                            &ina219_data_arr[0].buffer[4], 2, true);
+                                            &ina219_data_arr[index].buffer[4], 2, true);
                 current_state = INA219State::CURRENT_0;
                 break;
-                
+
             case INA219State::CURRENT_0:
-                success = i2c::readRegister(ina219_data_arr[0].address, 
+                success = i2c::readRegister(ina219_data_arr[index].address,
                                             static_cast<uint8_t>(INA219MemoryMap::current),
-                                            &ina219_data_arr[0].buffer[6], 2, true);
-                current_state = INA219State::SHUNT_1;
-                break;
-                
-            case INA219State::SHUNT_1:
-                success = i2c::readRegister(ina219_data_arr[1].address, 
-                                            static_cast<uint8_t>(INA219MemoryMap::shunt_voltage),
-                                            &ina219_data_arr[1].buffer[0], 2, true);
-                current_state = INA219State::BUS_1;
-                break;
-
-            case INA219State::BUS_1:
-                success = i2c::readRegister(ina219_data_arr[1].address, 
-                                            static_cast<uint8_t>(INA219MemoryMap::bus_voltage),
-                                            &ina219_data_arr[1].buffer[2], 2, true);
-                current_state = INA219State::POWER_1;
-                break;
-
-            case INA219State::POWER_1:
-                success = i2c::readRegister(ina219_data_arr[1].address, 
-                                            static_cast<uint8_t>(INA219MemoryMap::power),
-                                            &ina219_data_arr[1].buffer[4], 2, true);
-                current_state = INA219State::CURRENT_1;
-                break;
-                
-            case INA219State::CURRENT_1:
-                success = i2c::readRegister(ina219_data_arr[1].address, 
-                                            static_cast<uint8_t>(INA219MemoryMap::current),
-                                            &ina219_data_arr[1].buffer[6], 2, true);
+                                            &ina219_data_arr[index].buffer[6], 2, true);
                 current_state = INA219State::SHUNT_0;
+                this->incrementIndex();
                 break;
         }
 

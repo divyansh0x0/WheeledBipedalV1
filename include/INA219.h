@@ -46,15 +46,12 @@ namespace Biped {
         BUS_0,
         POWER_0,
         CURRENT_0,
-        SHUNT_1,
-        BUS_1,
-        POWER_1,
-        CURRENT_1
     };
 
     class INA219Manager {
 
         unsigned int last_read_time = 0;
+        unsigned int current_ina219_index;
 
     public:
         INA219State current_state = INA219State::SHUNT_0;
@@ -67,6 +64,11 @@ namespace Biped {
         bool is_ready = true;
 
         void initialize();
+
+
+        void incrementIndex() {
+            this->current_ina219_index =  (this->current_ina219_index + 1) % ina219_count ;
+        }
 
         void update();
     };

@@ -22,5 +22,6 @@ namespace Biped::Context {
     void update();
 
     float getBatteryPercentage();
+    float getBatteryVoltage();
 }
 #endif //BIPEDALV1_CONTEXT_H

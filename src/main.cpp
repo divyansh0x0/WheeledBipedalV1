@@ -17,6 +17,7 @@ static inline volatile float current[2] = {};
 static inline volatile float voltage[2] = {};
 
 static inline volatile float battery_percentage;
+static inline volatile float battery_voltage;
 
 [[noreturn]] int main() {
     using namespace STM32F411;
@@ -52,5 +53,6 @@ static inline volatile float battery_percentage;
         voltage[0] = Biped::Context::getVoltageHipLeft();
         voltage[1] = Biped::Context::getVoltageHipRight();
         battery_percentage = Biped::Context::getBatteryPercentage();
+        battery_voltage = Biped::Context::getBatteryVoltage();
     }
 }

@@ -64,6 +64,9 @@ namespace Biped::Context {
      float getBatteryPercentage() {
         return battery.getBatteryPercentage();
     }
+    float getBatteryVoltage() {
+        return battery.getBatteryVoltage();
+    }
     void initialize() {
         fan_controller.initialize();
         actuator_manager.initialize();
