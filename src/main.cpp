@@ -1,17 +1,8 @@
-#include "ActuatorManager.h"
-#include "BalancePID.h"
-#include "BatteryManager.h"
-#include "Buzzer.h"
 #include "Context.h"
-#include "FanController.h"
+#include "drivers/Clock.h"
 #include "drivers/GPIO.h"
-#include "drivers/ADC.h"
-#include "drivers/Interrupt.h"
 #include "drivers/MemoryMap.h"
-#include "drivers/MPU6050.h"
-#include "drivers/PWM.h"
-#include "../include/AS5600MUX.h"
-#include "FanController.h"
+
 
 static inline volatile float current[2] = {};
 static inline volatile float voltage[2] = {};

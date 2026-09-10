@@ -54,14 +54,30 @@ namespace Biped {
         m_thigh_right_pwm.enable();
 
         // Route the fully configured timer signals to the GPIO pins
-        m_left_wheel_dir::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
-        m_right_wheel_dir::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
-        m_left_thigh_pwm::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
-        m_right_thigh_pwm::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
+        m_pin_left_wheel_dir::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
+        m_pin_right_wheel_dir::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
+        m_pin_left_thigh_pwm::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
+        m_pin_right_thigh_pwm::enableAlternateFunction<STM32F411::Peripherals::TIMER5>();
     }
 
     void ActuatorManager::enableWheels() {
         phased_anti_lock_pwm_enable::set(STM32F411::HIGH);
+    }
+
+    void ActuatorManager::rotateHip(const float speed_left, const float speed_right) {
+        if (speed_left < 0) {
+            upper_left_dir_pin::set(STM32F411::LOW);
+        } else {
+            upper_left_dir_pin::set(STM32F411::HIGH);
+        }
+        if (speed_right < 0) {
+            upper_right_dir_pin::set(STM32F411::LOW);
+        } else {
+            upper_right_dir_pin::set(STM32F411::HIGH);
+        }
+
+        m_thigh_left_pwm.setDutyCycle(speed_left < 0 ? -speed_left : speed_left);
+        m_thigh_right_pwm.setDutyCycle(speed_right < 0 ? -speed_right : speed_right);
     }
 
     void ActuatorManager::setLeftWheel(const LockedAntiPhaseSpeed speed) {

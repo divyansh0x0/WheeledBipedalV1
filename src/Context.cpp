@@ -22,12 +22,15 @@ namespace Biped::Context {
     static ActuatorManager actuator_manager{};
     static STM32F411::MPU6050::MPU6050<STM32F411::I2C2, STM32F411::MPU6050::GyroScale::_250,
         STM32F411::MPU6050::AccelScale::g2> mpu6050({
-        .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791, .ax = -0.007324, .ay = -0.01074
+        .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791f, .ax = -0.007324f, .ay = -0.01074f
     });
 
     static unsigned int balance_loop_dt_us = 5 * 1'000; // 200hz balancer control loop
     static unsigned int last_balance_loop_time_us = 0;
     static unsigned int last_buzzer_update_time_us = 0;
+    static unsigned int last_hip_update_time_us = 0;
+
+    static float direction = 1.0f;
     static volatile bool mpu_ready = false;
 
     float getRoll() {
@@ -74,7 +77,6 @@ namespace Biped::Context {
         ina219_manager.initialize();
         battery.initialize();
 
-        // Configure PB4 as a digital input so the EXTI hardware can actually read the pin
         STM32F411::Pins::B4::enableInputMode();
 
         STM32F411::InterruptManager::attachEXTIInterrupt(STM32F411::InterruptManager::EXTILine::Line4, mpu_irq,
@@ -83,7 +85,6 @@ namespace Biped::Context {
         mpu6050.initialize(true);
 
 
-        // mpu6050.calibrateGyroscope();
         mpu6050.beginRead();
         STM32F411::Clock::delayMillis(200);
         last_balance_loop_time_us = STM32F411::Clock::micros();
@@ -95,6 +96,9 @@ namespace Biped::Context {
             buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
             last_buzzer_update_time_us = current_time;
         }
+        else if (battery.getBatteryPercentage() > 10){
+            buzzer.stop();
+        }
         if (mpu_ready) {
             mpu6050.beginRead();
             actuator_manager.enableWheels();
@@ -103,7 +107,13 @@ namespace Biped::Context {
         if (current_time - last_balance_loop_time_us >= balance_loop_dt_us) {
             last_balance_loop_time_us = current_time;
         }
+        if (current_time - last_hip_update_time_us >= 500'000) {
+            last_hip_update_time_us = current_time;
+            direction *= -1;
+        }
+
         actuator_manager.move(0,0);
+        actuator_manager.rotateHip(direction*0.1f, direction*0.1f);
         ina219_manager.update();
         mpu6050.update();
         buzzer.update();

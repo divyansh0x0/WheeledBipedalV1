@@ -35,14 +35,14 @@ namespace Biped {
 
         using phased_anti_lock_pwm_enable = STM32F411::Pins::A7;
         using upper_left_dir_pin = STM32F411::Pins::A5;
-        using upper_right_dir_pin = STM32F411::Pins::A4;
+        using upper_right_dir_pin = STM32F411::Pins::A6;
 
 
 
-        using m_left_wheel_dir = STM32F411::Pins::A1;
-        using m_right_wheel_dir = STM32F411::Pins::A2;
-        using m_left_thigh_pwm = STM32F411::Pins::A0;
-        using m_right_thigh_pwm = STM32F411::Pins::A3;
+        using m_pin_left_wheel_dir = STM32F411::Pins::A1;
+        using m_pin_right_wheel_dir = STM32F411::Pins::A2;
+        using m_pin_left_thigh_pwm = STM32F411::Pins::A0;
+        using m_pin_right_thigh_pwm = STM32F411::Pins::A3;
     public:
         ActuatorManager() = default;
         ActuatorManager(ActuatorManager& other) = delete;
@@ -51,6 +51,9 @@ namespace Biped {
         void initialize();
 
         void enableWheels();
+
+
+        void rotateHip(float speed_left, float speed_right);
 
         void setLeftWheel(const LockedAntiPhaseSpeed speed);
         void setRightWheel(const LockedAntiPhaseSpeed speed);
