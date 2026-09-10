@@ -3,7 +3,7 @@
 namespace Biped {
 
     void Buzzer::initialize() {
-        STM32F411::Pins::B0::enableAlternateFunction<STM32F411::Peripherals::TIMER3>();
+        Biped::Pins::B0::enableAlternateFunction<Biped::Peripherals::TIMER3>();
         m_pwm.enable();
         m_pwm.setFrequency(4000); 
         m_pwm.setDutyCycle(0);
@@ -20,7 +20,7 @@ namespace Biped {
         m_tone = tone;
         m_is_playing = true;
         m_sequence_step = 0;
-        m_last_update_time = STM32F411::Clock::millis();
+        m_last_update_time = Biped::Clock::millis();
 
         // Initial hardware configuration for the chosen sequence
         switch (tone) {
@@ -46,7 +46,7 @@ namespace Biped {
     void Buzzer::play(unsigned int duration_ms) {
         m_tone = Tones::MANUAL;
         this->m_duration = duration_ms;
-        this->m_last_update_time = STM32F411::Clock::millis();
+        this->m_last_update_time = Biped::Clock::millis();
         this->m_is_playing = true;
         m_pwm.setFrequency(4000);
         m_pwm.setDutyCycle(this->m_duty_cycle);
@@ -60,7 +60,7 @@ namespace Biped {
     void Buzzer::update() {
         if (!m_is_playing) return;
 
-        const uint64_t current_time = STM32F411::Clock::millis();
+        const uint64_t current_time = Biped::Clock::millis();
 
         switch (m_tone) {
             case Tones::MANUAL:

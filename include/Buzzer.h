@@ -28,7 +28,7 @@ namespace Biped {
         void update();
 
     private:
-        STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel3> m_pwm;
+        Biped::PWM::PWM<Biped::PWM::Timer::TIMER3, Biped::PWM::TimerChannel::Channel3> m_pwm;
         
         uint64_t m_last_update_time = 0;
         unsigned int m_duration = 0;

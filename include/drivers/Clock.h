@@ -7,7 +7,7 @@
 #include "Interrupt.h"
 #include "MemoryMap.h"
 #include<cinttypes>
-namespace STM32F411::Clock {
+namespace Biped::Clock {
         static constexpr uint16_t AHB_DIV[16] = {1, 1, 1, 1, 1, 1, 1, 1, 2, 4, 8, 16, 64, 128, 256, 512};
         static constexpr uint8_t APB_DIV[8] = {1, 1, 1, 1, 2, 4, 8, 16};
         static constexpr unsigned int EXTERNAL_CRYSTAL_HZ = 25'000'000;

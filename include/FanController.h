@@ -10,8 +10,8 @@
 
 namespace Biped {
     class FanController {
-        STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel4> m_pwm =
-                STM32F411::PWM::PWM<STM32F411::PWM::Timer::TIMER3, STM32F411::PWM::TimerChannel::Channel4>();
+        Biped::PWM::PWM<Biped::PWM::Timer::TIMER3, Biped::PWM::TimerChannel::Channel4> m_pwm =
+                Biped::PWM::PWM<Biped::PWM::Timer::TIMER3, Biped::PWM::TimerChannel::Channel4>();
 
     public:
         FanController() = default;

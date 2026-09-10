@@ -6,7 +6,7 @@
 #define BIPEDALV1_INTERRUPT_H
 #include<cstdint>
 #include<drivers/MemoryMap.h>
-namespace STM32F411 {
+namespace Biped {
     struct NVICMemoryMap {
         volatile uint32_t ISER[8]; // Offset: 0x000 (Interrupt Set Enable)
         uint32_t RESERVED0[24];

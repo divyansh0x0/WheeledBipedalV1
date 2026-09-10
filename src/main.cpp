@@ -11,7 +11,7 @@ static inline volatile float battery_percentage;
 static inline volatile float battery_voltage;
 
 [[noreturn]] int main() {
-    using namespace STM32F411;
+    using namespace Biped;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C2);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C3);

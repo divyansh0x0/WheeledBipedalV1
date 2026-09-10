@@ -20,8 +20,8 @@ namespace Biped::Context {
     static INA219Manager ina219_manager{};
     static BatteryManager<10.6f, 12.6f, 98.0f, 31.8f> battery;
     static ActuatorManager actuator_manager{};
-    static STM32F411::MPU6050::MPU6050<STM32F411::I2C2, STM32F411::MPU6050::GyroScale::_250,
-        STM32F411::MPU6050::AccelScale::g2> mpu6050({
+    static Biped::MPU6050::MPU6050<Biped::I2C2, Biped::MPU6050::GyroScale::_250,
+        Biped::MPU6050::AccelScale::g2> mpu6050({
         .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791f, .ax = -0.007324f, .ay = -0.01074f
     });
 
@@ -77,21 +77,21 @@ namespace Biped::Context {
         ina219_manager.initialize();
         battery.initialize();
 
-        STM32F411::Pins::B4::enableInputMode();
+        Biped::Pins::B4::enableInputMode();
 
-        STM32F411::InterruptManager::attachEXTIInterrupt(STM32F411::InterruptManager::EXTILine::Line4, mpu_irq,
-                                                         STM32F411::InterruptManager::EXTISource::GPIOB,
-                                                         STM32F411::InterruptManager::EXTITrigger::RISING);
+        Biped::InterruptManager::attachEXTIInterrupt(Biped::InterruptManager::EXTILine::Line4, mpu_irq,
+                                                         Biped::InterruptManager::EXTISource::GPIOB,
+                                                         Biped::InterruptManager::EXTITrigger::RISING);
         mpu6050.initialize(true);
 
 
         mpu6050.beginRead();
-        STM32F411::Clock::delayMillis(200);
-        last_balance_loop_time_us = STM32F411::Clock::micros();
+        Biped::Clock::delayMillis(200);
+        last_balance_loop_time_us = Biped::Clock::micros();
     }
 
      void update() {
-        const unsigned int current_time = STM32F411::Clock::micros();
+        const unsigned int current_time = Biped::Clock::micros();
         if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
             buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
             last_buzzer_update_time_us = current_time;

@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-namespace STM32F411::MemoryMap {
+namespace Biped::MemoryMap {
     inline constexpr unsigned int CPU_FREQUENCY = 72'000'000;
     using register_t = unsigned int;
 

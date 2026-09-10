@@ -28,7 +28,7 @@ namespace Biped {
     }
 
     float BalancePID::getPitchPID(float pitch, float gyro_y) {
-        const uint32_t now = STM32F411::Clock::micros();
+        const uint32_t now = Biped::Clock::micros();
         if (m_pitch.last_time == 0) {
             m_pitch.last_time = now;
             m_pitch.last_error = m_pitch.target - pitch;
@@ -56,7 +56,7 @@ namespace Biped {
     }
 
     float BalancePID::getRollPID(const float roll, const float gyro_x) {
-        const uint32_t now = STM32F411::Clock::micros();
+        const uint32_t now = Biped::Clock::micros();
         if (m_roll.last_time == 0) {
             m_roll.last_time = now;
             m_roll.last_error = m_roll.target - roll;

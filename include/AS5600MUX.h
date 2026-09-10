@@ -9,7 +9,7 @@
 #include "drivers/I2C.h"
 #include "drivers/Clock.h"
 
-namespace STM32F411::AS5600 {
+namespace Biped::AS5600 {
     /**
      * Magnet status reported by the AS5600 STATUS register (0x0B).
      *   MD (bit 5) – magnet detected

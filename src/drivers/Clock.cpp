@@ -1,6 +1,6 @@
 #include "drivers/Clock.h"
 
-namespace STM32F411::Clock {
+namespace Biped::Clock {
     static volatile uint64_t COUNTER_RESET_COUNT = 0;
     unsigned int micros() {
         return MemoryMap::TIMER10->CNT + (COUNTER_RESET_COUNT * (0xFFFF+1));

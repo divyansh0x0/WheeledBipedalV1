@@ -39,28 +39,28 @@ extern "C" init_func_t _einit;
  */
 static void initSystemClock() {
     // 1. Enable the External Crystal (HSE) and wait for hardware lock.
-    STM32F411::MemoryMap::RCC1->enableHSE();
+    Biped::MemoryMap::RCC1->enableHSE();
 
     // 2. Configure Flash Latency FIRST.
     // For STM32F411 at 96MHz (3.3V VDD), 3 Wait States are required.
-    STM32F411::MemoryMap::FlashInterface->setWaitState(STM32F411::MemoryMap::Flash::WaitStates::THREE);
+    Biped::MemoryMap::FlashInterface->setWaitState(Biped::MemoryMap::Flash::WaitStates::THREE);
 
     // 3. Configure and enable the PLL.
     // Target: 96 MHz SYSCLK, 48 MHz USB.
     // F4 PLL Formula: f(VCO) = f(HSE) * (N / M). f(SYSCLK) = f(VCO) / P. f(USB) = f(VCO) / Q.
     // M=25 (1MHz VCO in), N=192 (192MHz VCO out), P=2 (96MHz Core), Q=4 (48MHz USB)
-    STM32F411::MemoryMap::RCC1->enablePLL(STM32F411::MemoryMap::RCC::PLLSource::HSE, 25, 192, 2, 4);
+    Biped::MemoryMap::RCC1->enablePLL(Biped::MemoryMap::RCC::PLLSource::HSE, 25, 192, 2, 4);
 
     // 4. Set bus prescalers BEFORE switching the system clock.
     // AHB  = 96 MHz (Prescaler = None)   -> Max 100 MHz
     // APB1 = 48 MHz (Prescaler = Half)   -> Max 50 MHz
     // APB2 = 96 MHz (Prescaler = None)   -> Max 100 MHz
-    STM32F411::MemoryMap::RCC1->setAPB1PreScaler(STM32F411::MemoryMap::RCC::Prescaler::Half);
-    STM32F411::MemoryMap::RCC1->setAPB2PreScaler(STM32F411::MemoryMap::RCC::Prescaler::None);
-    STM32F411::MemoryMap::RCC1->setAHBPrescaler(STM32F411::MemoryMap::RCC::AHBPrescaler::None);
+    Biped::MemoryMap::RCC1->setAPB1PreScaler(Biped::MemoryMap::RCC::Prescaler::Half);
+    Biped::MemoryMap::RCC1->setAPB2PreScaler(Biped::MemoryMap::RCC::Prescaler::None);
+    Biped::MemoryMap::RCC1->setAHBPrescaler(Biped::MemoryMap::RCC::AHBPrescaler::None);
 
     // 5. Route the PLL to the Core.
-    STM32F411::MemoryMap::RCC1->setSystemClockSrc(STM32F411::MemoryMap::RCC::SystemClockSource::PLL);
+    Biped::MemoryMap::RCC1->setSystemClockSrc(Biped::MemoryMap::RCC::SystemClockSource::PLL);
 }
 
 /**
@@ -115,12 +115,12 @@ extern "C" [[noreturn]] void Reset_Handler(void) {
 }
 
 static void dma1StreamInterrupt(uint8_t stream) {
-    auto dma = STM32F411::MemoryMap::DMA1;
-    uint8_t bit_offset = STM32F411::InterruptManager::TCIF_OFFSETS[stream % 4];
+    auto dma = Biped::MemoryMap::DMA1;
+    uint8_t bit_offset = Biped::InterruptManager::TCIF_OFFSETS[stream % 4];
 
     // Streams 0-3 use LISR/LIFCR. Streams 4-7 use HISR/HIFCR.
-    volatile STM32F411::MemoryMap::register_t &status_reg = (stream < 4) ? dma->LISR : dma->HISR;
-    volatile STM32F411::MemoryMap::register_t &clear_reg = (stream < 4) ? dma->LIFCR : dma->HIFCR;
+    volatile Biped::MemoryMap::register_t &status_reg = (stream < 4) ? dma->LISR : dma->HISR;
+    volatile Biped::MemoryMap::register_t &clear_reg = (stream < 4) ? dma->LIFCR : dma->HIFCR;
 
     // Check if the Transfer Complete Interrupt Flag is set
     if (status_reg & (1 << bit_offset)) {
@@ -128,8 +128,8 @@ static void dma1StreamInterrupt(uint8_t stream) {
         clear_reg = (1 << bit_offset);
 
         // Execute the dynamically assigned callback
-        if (STM32F411::InterruptManager::dma_callbacks[stream] != nullptr) {
-            STM32F411::InterruptManager::dma_callbacks[stream]();
+        if (Biped::InterruptManager::dma_callbacks[stream] != nullptr) {
+            Biped::InterruptManager::dma_callbacks[stream]();
         }
     }
 }
@@ -137,13 +137,13 @@ static void dma1StreamInterrupt(uint8_t stream) {
 static void handleEXTI(uint8_t start_line, uint8_t end_line) {
     for (uint8_t i = start_line; i <= end_line; i++) {
         // Check if the Pending Register (PR) flag is set for this specific line
-        if (STM32F411::EXTIReg->PR & (1 << i)) {
+        if (Biped::EXTIReg->PR & (1 << i)) {
             // CLEAR the flag by writing a 1 to it (STM32 hardware quirk: rc_w1)
-            STM32F411::EXTIReg->PR = (1 << i);
+            Biped::EXTIReg->PR = (1 << i);
 
             // Execute the user's callback if it exists
-            if (STM32F411::InterruptManager::exti_callbacks[i] != nullptr) {
-                STM32F411::InterruptManager::exti_callbacks[i]();
+            if (Biped::InterruptManager::exti_callbacks[i] != nullptr) {
+                Biped::InterruptManager::exti_callbacks[i]();
             }
         }
     }
@@ -186,7 +186,7 @@ extern "C" void HardFault_Handler(void) {
 
 extern "C" void TIM1_UP_TIM10_IRQHandler()
 {
-    using InterruptManager = STM32F411::InterruptManager;
+    using InterruptManager = Biped::InterruptManager;
 
     auto* handlers = InterruptManager::timer_uif_callbacks;
 
@@ -198,8 +198,8 @@ extern "C" void TIM1_UP_TIM10_IRQHandler()
     //     }
     // }
 
-    if (STM32F411::MemoryMap::TIMER10->SR & 0b1) {
-        STM32F411::MemoryMap::TIMER10->SR &= ~0b1;
+    if (Biped::MemoryMap::TIMER10->SR & 0b1) {
+        Biped::MemoryMap::TIMER10->SR &= ~0b1;
 
         if (handlers[static_cast<uint8_t>(InterruptManager::Timer::_10)]) {
             handlers[static_cast<uint8_t>(InterruptManager::Timer::_10)]();

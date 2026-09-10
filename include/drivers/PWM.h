@@ -8,7 +8,7 @@
 #include "Clock.h"
 #include "MemoryMap.h"
 #include <cmath>
-namespace STM32F411::PWM {
+namespace Biped::PWM {
     enum class Timer {
         TIMER2 = 0x4000'0000u,
         TIMER3 = 0x4000'0400u,
