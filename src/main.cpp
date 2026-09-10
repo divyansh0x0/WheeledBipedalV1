@@ -42,6 +42,7 @@ static Biped::AS5600::AS5600MUX *mux = nullptr;;
     mux = Context::getAS5600MUX();
 
 
+    mux->start();
     while (true) {
         Context::update();
         current[0] = Context::getCurrentHipLeft();
@@ -52,6 +53,5 @@ static Biped::AS5600::AS5600MUX *mux = nullptr;;
         battery_voltage = Context::getBatteryVoltage();
         roll = Context::getRoll();
         pitch = Context::getPitch();
-        mux->updateAngles();
     }
 }

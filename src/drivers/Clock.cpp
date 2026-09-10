@@ -3,7 +3,17 @@
 namespace Biped::Clock {
     static volatile uint64_t COUNTER_RESET_COUNT = 0;
     unsigned int micros() {
-        return MemoryMap::TIMER10->CNT + (COUNTER_RESET_COUNT * (0xFFFF+1));
+        uint32_t cnt = MemoryMap::TIMER10->CNT;
+        uint64_t resets = COUNTER_RESET_COUNT;
+        
+        // If the overflow interrupt is pending but hasn't run yet (e.g. because we are in
+        // a higher priority interrupt like DMA), we must manually account for the rollover
+        // to prevent time from jumping backwards.
+        if ((MemoryMap::TIMER10->SR & 1) && (cnt < 32768)) {
+            resets++;
+        }
+        
+        return cnt + (resets * (0xFFFF + 1));
     }
 
      unsigned int millis() {

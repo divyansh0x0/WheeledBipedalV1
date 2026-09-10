@@ -8,7 +8,6 @@
 #include "drivers/MemoryMap.h"
 #include "drivers/I2C.h"
 #include "drivers/Clock.h"
-
 namespace Biped::AS5600 {
     /**
      * Magnet status reported by the AS5600 STATUS register (0x0B).
@@ -32,7 +31,7 @@ namespace Biped::AS5600 {
         MagnetStatus status;
         uint8_t buffer[2];
     };
-
+    // PCA9548A Multiplexer has been used
     class AS5600MUX {
         using i2c = I2C1;
 

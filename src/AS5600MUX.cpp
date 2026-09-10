@@ -46,16 +46,17 @@ namespace Biped::AS5600 {
     void AS5600MUX::updateDataDMA() {
         // Loop until we successfully start a DMA read, to prevent infinite recursion
         // if multiple/all sensors are disconnected and we instantly NACK.
-        // for (int i = 0; i < this->as5600_count; i++) {
-            // bool success = i2c::readRegister(AS5600_ADDR, ANGLE_H, this->getCurrentAS5600State()->buffer, 2, true);
-            // if (success) {
-                // return; // DMA started successfully, callback will handle the rest
-            // }
+        for (int i = 0; i < this->as5600_count; i++) {
+            bool success = i2c::readRegister(AS5600_ADDR, RAW_ANGLE_H, this->getCurrentAS5600State()->buffer, 2, true);
+            if (success) {
+                return; // DMA started successfully, callback will handle the rest
+            }
             
             // Failed to start (NACK). Mark error, recover bus, and try the next channel.
-            // this->getCurrentAS5600State()->status = MagnetStatus::ReadError;
-            // this->changeChannelDMA();
-        // }
+            this->getCurrentAS5600State()->status = MagnetStatus::ReadError;
+            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            this->changeChannelDMA();
+        }
     }
     void AS5600MUX::start() {
         this->changeChannelDMA();
