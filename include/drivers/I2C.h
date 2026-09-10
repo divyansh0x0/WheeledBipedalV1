@@ -179,41 +179,8 @@ namespace Biped {
             return true;
         }
 
-        static bool writeByte(uint8_t i2c_addr, uint8_t byte) {
-            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
-
-            if (!waitFreeBus()) return false;
-
-            // START
-            REG->CR1 |= 1 << 8;
-            if (!waitEvent(I2CFlags::START_BIT_GENERATED)) {
-                return false;
-            }
-
-            // Address + Write
-            REG->DR = i2c_addr << 1;
-            if (!waitEvent(I2CFlags::ADDRESS_SENT)) {
-                return false;
-            }
-            clearAddress();
-
-            // Data byte
-            REG->DR = byte;
-            if (!waitEvent(I2CFlags::TRANSFER_REGISTER_EMPTY)) {
-                return false;
-            }
-            if (!waitEvent(I2CFlags::BYTE_TRANSFER_FINISHED)) {
-                return false;
-            }
-
-            // STOP
-            REG->CR1 |= 1 << 9;
-            return true;
-        }
-
         static bool writeRegister(uint8_t i2c_addr, uint8_t reg_addr, const uint8_t *data, const uint32_t length,
                                   bool use_dma = false) {
-            if (length == 0) return true;
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
 
 
@@ -230,11 +197,18 @@ namespace Biped {
             REG->DR = reg_addr;
             if (!waitEvent(I2CFlags::TRANSFER_REGISTER_EMPTY)) return false;
 
-            if (use_dma) {
+            if (length == 0) {
+                // No payload — just finish the reg_addr byte and STOP.
+                // Used for register-less devices like the PCA9548A where
+                // the "register address" byte IS the data (channel mask).
+                if (!waitEvent(I2CFlags::BYTE_TRANSFER_FINISHED)) return false;
+                REG->CR1 |= 1 << 9;
+            } else if (use_dma) {
                 MemoryMap::DMAStream *dma_stream = getDMAStreamWrite();
 
                 dma_stream->setChannel(MemoryMap::DMAStream::Channel::CH1);
                 dma_stream->setEnabled(false);
+                dma_stream->setDataTransferMode(MemoryMap::DMAStream::TransferDirection::MEMORY_TO_PERIPHERAL);
                 while (dma_stream->isEnabled()) {
                 };
                 dma_stream->setPeripheralAddress(&REG->DR);
@@ -243,6 +217,8 @@ namespace Biped {
                 dma_stream->enableMemoryIncrementMode(true);
                 dma_stream->enableTransferCompleteInterrupt(true);
                 REG->CR2 |= (1 << 11); // Set DMAEN
+
+                dma_stream->clearInterruptFlags();
                 dma_stream->setEnabled(true); // Enable stream
             } else {
                 // Send data
@@ -378,12 +354,15 @@ namespace Biped {
                 dma_stream->setDataLength(length);
                 dma_stream->enableMemoryIncrementMode(true);
                 dma_stream->enableTransferCompleteInterrupt(true);
-
+                dma_stream->setDataTransferMode(MemoryMap::DMAStream::TransferDirection::PERIPHERAL_TO_MEMORY);
                 REG->CR1 |= (1 << 10); // Enable ACK so all bytes except last are ACKed
                 REG->CR2 |= (1 << 11); // DMAEN (Enable DMA requests)
                 REG->CR2 |= (1 << 12); // Set LAST bit to send NACK on final byte
-                clearAddress(); // Clear ADDR flag to start receiving
+
+                dma_stream->clearInterruptFlags();
                 dma_stream->setEnabled(true);
+                
+                clearAddress(); // Clear ADDR flag to start receiving
             } else {
                 if (length == 1) {
                     // Clear ACK

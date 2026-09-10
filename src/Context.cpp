@@ -86,10 +86,8 @@ namespace Biped::Context {
 
         Biped::InterruptManager::attachEXTIInterrupt(Biped::InterruptManager::EXTILine::Line4, mpu_irq,
                                                          Biped::InterruptManager::EXTISource::GPIOB,
-
-                                                                Biped::InterruptManager::EXTITrigger::RISING);
+                                                         Biped::InterruptManager::EXTITrigger::RISING);
         mpu6050.initialize(true);
-
         as5600mux.initialize();
         mpu6050.beginRead();
         Biped::Clock::delayMillis(200);
@@ -98,13 +96,13 @@ namespace Biped::Context {
 
      void update() {
         const unsigned int current_time = Biped::Clock::micros();
-        if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
-            buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
-            last_buzzer_update_time_us = current_time;
-        }
-        else if (battery.getBatteryPercentage() > 10){
-            buzzer.stop();
-        }
+        // if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
+        //     buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
+        //     last_buzzer_update_time_us = current_time;
+        // }
+        // else if (battery.getBatteryPercentage() > 10){
+        //     buzzer.stop();
+        // }
         if (mpu_ready) {
             mpu6050.beginRead();
             actuator_manager.enableWheels();

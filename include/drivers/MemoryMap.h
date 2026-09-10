@@ -875,6 +875,24 @@ namespace Biped::MemoryMap {
                 FCR &= ~(1 << 2);
             }
         }
+
+        void clearInterruptFlags() {
+            uint32_t addr = reinterpret_cast<uint32_t>(this);
+            uint32_t stream_idx = ((addr & 0xFF) - 0x10) / 0x18; 
+            
+            volatile register_t* lifcr = reinterpret_cast<volatile register_t*>( (addr & ~0x3FF) + 0x08 );
+            volatile register_t* hifcr = reinterpret_cast<volatile register_t*>( (addr & ~0x3FF) + 0x0C );
+            
+            uint32_t offsets[4] = {0, 6, 16, 22};
+            uint32_t offset = offsets[stream_idx % 4];
+            uint32_t mask = 0x3D << offset; // 0x3D clears FEIF, DMEIF, TEIF, HTIF, TCIF
+            
+            if (stream_idx < 4) {
+                *lifcr = mask;
+            } else {
+                *hifcr = mask;
+            }
+        }
     };
 
     struct DMAMemoryMap {

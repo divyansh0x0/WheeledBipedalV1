@@ -9,7 +9,10 @@ static inline volatile float voltage[2] = {};
 
 static inline volatile float battery_percentage;
 static inline volatile float battery_voltage;
-static inline volatile Biped::AS5600::MagnetStatus magnetStatus;
+static inline volatile float roll;
+static inline volatile float pitch;
+static Biped::AS5600::AS5600MUX *mux = nullptr;;
+
 [[noreturn]] int main() {
     using namespace Biped;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
@@ -36,6 +39,8 @@ static inline volatile Biped::AS5600::MagnetStatus magnetStatus;
     Pins::A8::enableAlternateFunction<Peripherals::SCL3>();
 
     Context::initialize();
+    mux = Context::getAS5600MUX();
+
 
     while (true) {
         Context::update();
@@ -45,7 +50,8 @@ static inline volatile Biped::AS5600::MagnetStatus magnetStatus;
         voltage[1] = Context::getVoltageHipRight();
         battery_percentage = Context::getBatteryPercentage();
         battery_voltage = Context::getBatteryVoltage();
-
-        magnetStatus = Context::getAS5600MUX()->readMagnetStatus();
+        roll = Context::getRoll();
+        pitch = Context::getPitch();
+        mux->updateAngles();
     }
 }

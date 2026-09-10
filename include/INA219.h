@@ -51,7 +51,7 @@ namespace Biped {
     class INA219Manager {
 
         unsigned int last_read_time = 0;
-        unsigned int current_ina219_index;
+        unsigned int current_ina219_index = 0;
 
     public:
         INA219State current_state = INA219State::SHUNT_0;

@@ -30,13 +30,14 @@ namespace Biped::AS5600 {
         float normalized_angle;
         float rpm;
         MagnetStatus status;
+        uint8_t buffer[2];
     };
 
     class AS5600MUX {
         using i2c = I2C1;
 
         // ── Addresses ─────────────────────────────────────────────
-        static constexpr uint8_t PCA9548A_ADDR = 0x70;
+        static inline uint8_t PCA9548A_ADDR = 0x70;
         static constexpr uint8_t AS5600_ADDR = 0x36;
 
         // ── AS5600 Register map ───────────────────────────────────
@@ -64,24 +65,23 @@ namespace Biped::AS5600 {
         AS5600State as5600_states[4] = {
             {
                 .mux_index = 0, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected
+                .status = MagnetStatus::NotDetected, .buffer{}
             },
             {
                 .mux_index = 1, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected
+                .status = MagnetStatus::NotDetected,.buffer{}
             },
             {
                 .mux_index = 2, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected
+                .status = MagnetStatus::NotDetected,.buffer{}
             },
             {
                 .mux_index = 3, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected
+                .status = MagnetStatus::NotDetected,.buffer{}
             }
         };
         uint8_t active_as5600_index = 0;
         uint8_t active_channel = 0;
-        uint8_t buffer[2 * 4] = {};
         /**
          * Select this encoder's active_channel on the PCA9548A.
          * The PCA9548A has no register pointer — a single byte
@@ -89,22 +89,26 @@ namespace Biped::AS5600 {
          * Uses writeByte: START → 0x70+W → mask → STOP
          */
 
-        unsigned int current_mux_index;
+        unsigned int current_mux_index = 0;
 
     public:
         AS5600MUX() = default;
 
         bool initialize();
 
-        MagnetStatus readMagnetStatus();
+        void updateAngles();
 
-        bool readRawAngle(volatile uint16_t &raw_out);
+        void readMagnetStatus();
 
-        bool change_channel();
-
-        [[nodiscard]] bool isMagnetDetected();
+        bool changeChannel();
 
         AS5600State *getCurrentAS5600State();
+
+        void changeChannelDMA();
+
+        void updateDataDMA();
+
+        void start();
     };
 }
 #endif //BIPEDALV1_AS5600_H
