@@ -9,7 +9,7 @@ static inline volatile float voltage[2] = {};
 
 static inline volatile float battery_percentage;
 static inline volatile float battery_voltage;
-
+static inline volatile Biped::AS5600::MagnetStatus magnetStatus;
 [[noreturn]] int main() {
     using namespace Biped;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
@@ -35,15 +35,17 @@ static inline volatile float battery_voltage;
     Pins::B8::enableAlternateFunction<Peripherals::SDA3>();
     Pins::A8::enableAlternateFunction<Peripherals::SCL3>();
 
-    Biped::Context::initialize();
+    Context::initialize();
 
     while (true) {
-        Biped::Context::update();
-        current[0] = Biped::Context::getCurrentHipLeft();
-        current[1] = Biped::Context::getCurrentHipRight();
-        voltage[0] = Biped::Context::getVoltageHipLeft();
-        voltage[1] = Biped::Context::getVoltageHipRight();
-        battery_percentage = Biped::Context::getBatteryPercentage();
-        battery_voltage = Biped::Context::getBatteryVoltage();
+        Context::update();
+        current[0] = Context::getCurrentHipLeft();
+        current[1] = Context::getCurrentHipRight();
+        voltage[0] = Context::getVoltageHipLeft();
+        voltage[1] = Context::getVoltageHipRight();
+        battery_percentage = Context::getBatteryPercentage();
+        battery_voltage = Context::getBatteryVoltage();
+
+        magnetStatus = Context::getAS5600MUX()->readMagnetStatus();
     }
 }

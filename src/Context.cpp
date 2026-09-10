@@ -5,6 +5,7 @@
 #include "Context.h"
 
 #include "ActuatorManager.h"
+#include "AS5600MUX.h"
 #include "BatteryManager.h"
 #include "Buzzer.h"
 #include "FanController.h"
@@ -20,10 +21,11 @@ namespace Biped::Context {
     static INA219Manager ina219_manager{};
     static BatteryManager<10.6f, 12.6f, 98.0f, 31.8f> battery;
     static ActuatorManager actuator_manager{};
-    static Biped::MPU6050::MPU6050<Biped::I2C2, Biped::MPU6050::GyroScale::_250,
-        Biped::MPU6050::AccelScale::g2> mpu6050({
+    static MPU6050::MPU6050<I2C2, MPU6050::GyroScale::_250,
+        MPU6050::AccelScale::g2> mpu6050({
         .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791f, .ax = -0.007324f, .ay = -0.01074f
     });
+    static AS5600::AS5600MUX as5600mux{};
 
     static unsigned int balance_loop_dt_us = 5 * 1'000; // 200hz balancer control loop
     static unsigned int last_balance_loop_time_us = 0;
@@ -41,6 +43,9 @@ namespace Biped::Context {
     }
     float getGyroX() {
         return mpu6050.getGyroX();
+    }
+    AS5600::AS5600MUX* getAS5600MUX() {
+        return &as5600mux;
     }
 
     float getCurrentHipLeft() {
@@ -81,10 +86,11 @@ namespace Biped::Context {
 
         Biped::InterruptManager::attachEXTIInterrupt(Biped::InterruptManager::EXTILine::Line4, mpu_irq,
                                                          Biped::InterruptManager::EXTISource::GPIOB,
-                                                         Biped::InterruptManager::EXTITrigger::RISING);
+
+                                                                Biped::InterruptManager::EXTITrigger::RISING);
         mpu6050.initialize(true);
 
-
+        as5600mux.initialize();
         mpu6050.beginRead();
         Biped::Clock::delayMillis(200);
         last_balance_loop_time_us = Biped::Clock::micros();

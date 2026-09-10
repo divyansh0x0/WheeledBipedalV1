@@ -4,6 +4,8 @@
 
 #ifndef BIPEDALV1_CONTEXT_H
 #define BIPEDALV1_CONTEXT_H
+#include "AS5600MUX.h"
+
 namespace Biped::Context {
     float getRoll();
 
@@ -11,6 +13,7 @@ namespace Biped::Context {
 
     float getGyroX();
 
+    AS5600::AS5600MUX* getAS5600MUX();
     float getPitch();
     float getCurrentHipLeft();
     float getCurrentHipRight();
