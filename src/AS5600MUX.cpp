@@ -3,6 +3,7 @@
 //
 
 #include "AS5600MUX.h"
+#include "drivers/GPIO.h"
 
 static void read_callback(void *ctx) {
     const auto as5600mux = reinterpret_cast<Biped::AS5600::AS5600MUX *>(ctx);
@@ -14,7 +15,11 @@ namespace Biped::AS5600 {
     bool AS5600MUX::change_channel() {
         this->active_as5600_index = this->active_as5600_index % this->as5600_count + 1;
         this->active_channel = this->as5600_states[this->active_as5600_index].mux_index;
-        return i2c::writeByte(PCA9548A_ADDR, static_cast<uint8_t>(0b1 << this->active_channel));
+        bool success = i2c::writeByte(PCA9548A_ADDR, static_cast<uint8_t>(0b1 << this->active_channel));
+        if (!success && i2c::isBusBusy()) {
+            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+        }
+        return success;
     }
 
     AS5600State *AS5600MUX::getCurrentAS5600State() {
@@ -42,8 +47,12 @@ namespace Biped::AS5600 {
 
     MagnetStatus AS5600MUX::readMagnetStatus() {
         uint8_t status = 0;
-        if (!i2c::readRegister(AS5600_ADDR, STATUS, &status, 1))
+        if (!i2c::readRegister(AS5600_ADDR, STATUS, &status, 1)) {
+            if (i2c::isBusBusy()) {
+                i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            }
             return MagnetStatus::ReadError;
+        }
 
 
         const bool md = status & (1 << 5);

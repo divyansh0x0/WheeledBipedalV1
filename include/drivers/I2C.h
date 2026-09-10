@@ -129,7 +129,7 @@ namespace Biped {
 
             // 3. Toggle SCL up to 9 times to clock out stuck slaves
             for (int i = 0; i < 9; ++i) {
-                if (SdaPin::getStatus() == HIGH) {
+                if (SdaPin::getInputState() == HIGH) {
                     break;
                 }
                 SclPin::set(LOW);
