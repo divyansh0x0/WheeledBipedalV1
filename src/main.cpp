@@ -12,7 +12,7 @@ static inline volatile float battery_voltage;
 static inline volatile float roll;
 static inline volatile float pitch;
 static Biped::AS5600::AS5600MUX *mux = nullptr;;
-
+static volatile unsigned int control_loop_rate_hz = 0;
 [[noreturn]] int main() {
     using namespace Biped;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
@@ -43,6 +43,8 @@ static Biped::AS5600::AS5600MUX *mux = nullptr;;
 
 
     mux->start();
+    unsigned int t1 = Clock::millis();
+    unsigned int count = 0;
     while (true) {
         Context::update();
         current[0] = Context::getCurrentHipLeft();
@@ -53,5 +55,12 @@ static Biped::AS5600::AS5600MUX *mux = nullptr;;
         battery_voltage = Context::getBatteryVoltage();
         roll = Context::getRoll();
         pitch = Context::getPitch();
+        count++;
+
+        if (Clock::millis() - t1 > 1000) {
+            control_loop_rate_hz = count;
+            count = 0;
+            t1 = Clock::millis();
+        }
     }
 }

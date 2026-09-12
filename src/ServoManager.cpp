@@ -1,4 +1,4 @@
-#include "ActuatorManager.h"
+#include "ServoManager.h"
 
 #include <numbers>
 
@@ -22,7 +22,7 @@ namespace Biped {
         return pid_output;
     }
 
-    void ActuatorManager::initialize() {
+    void ServoManager::initialize(float wheel_radius, float hip_joint_radius, AS5600::AS5600State* wheel_left, AS5600::AS5600State* wheel_right, AS5600::AS5600State* hip_left, AS5600::AS5600State* hip_right) {
         Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::AHB1Peripheral::GPIOA);
         Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::APB1Peripheral::TIMER5);
 
@@ -58,13 +58,22 @@ namespace Biped {
         m_pin_right_wheel_dir::enableAlternateFunction<Biped::Peripherals::TIMER5>();
         m_pin_left_thigh_pwm::enableAlternateFunction<Biped::Peripherals::TIMER5>();
         m_pin_right_thigh_pwm::enableAlternateFunction<Biped::Peripherals::TIMER5>();
+
+        this->servos.hip_left.encoder_state = hip_left;
+        this->servos.hip_left.radius = hip_joint_radius;
+        this->servos.hip_right.encoder_state = hip_right;
+        this->servos.hip_right.radius = hip_joint_radius;
+        this->servos.wheel_left.encoder_state = wheel_left;
+        this->servos.wheel_left.radius = wheel_radius;
+        this->servos.wheel_right.encoder_state = wheel_right;
+        this->servos.wheel_right.radius = wheel_radius;
     }
 
-    void ActuatorManager::enableWheels() {
+    void ServoManager::enableWheels() {
         phased_anti_lock_pwm_enable::set(Biped::HIGH);
     }
 
-    void ActuatorManager::rotateHip(const float speed_left, const float speed_right) {
+    void ServoManager::rotateHip(const float speed_left, const float speed_right) {
         if (speed_left < 0) {
             upper_left_dir_pin::set(Biped::LOW);
         } else {
@@ -80,23 +89,23 @@ namespace Biped {
         m_thigh_right_pwm.setDutyCycle(speed_right < 0 ? -speed_right : speed_right);
     }
 
-    void ActuatorManager::setLeftWheel(const LockedAntiPhaseSpeed speed) {
+    void ServoManager::setLeftWheel(const LockedAntiPhaseSpeed speed) {
         m_left_wheel_pwm.setDutyCycle(speed.toDuty());
     }
 
-    void ActuatorManager::setRightWheel(const LockedAntiPhaseSpeed speed) {
+    void ServoManager::setRightWheel(const LockedAntiPhaseSpeed speed) {
         m_right_wheel_pwm.setDutyCycle(speed.toDuty());
     }
 
-    void ActuatorManager::move(const float speed_left, const float speed_right) {
+    void ServoManager::set_wheel_speed(const float speed_left, const float speed_right) {
         const LockedAntiPhaseSpeed targetSpeedLeft(speed_left);
         const LockedAntiPhaseSpeed targetSpeedRight(speed_right);
         setLeftWheel(targetSpeedLeft);
         setRightWheel(targetSpeedRight);
     }
 
-    void ActuatorManager::update() {
+    void ServoManager::update() {
         float pid_output = doPID();
-        this->move(pid_output, pid_output);
+        this->set_wheel_speed(pid_output, pid_output);
     }
 }

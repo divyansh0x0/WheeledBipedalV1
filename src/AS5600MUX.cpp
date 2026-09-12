@@ -9,6 +9,10 @@ static void encoder_read_callback(void *ctx) {
     const auto as5600mux = reinterpret_cast<Biped::AS5600::AS5600MUX *>(ctx);
     Biped::AS5600::AS5600State *state = as5600mux->getCurrentAS5600State();
     state->raw_angle = 360.0f/4096.0f * static_cast<float>(static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1]));
+    if (!state->reference_angle.has_value()) {
+        state->reference_angle = state->raw_angle;
+    }
+    state->normalized_angle = state->raw_angle - state->reference_angle.value();
     as5600mux->changeChannelDMA();
     as5600mux->updateDataDMA();
 }
@@ -66,9 +70,12 @@ namespace Biped::AS5600 {
     bool AS5600MUX::initialize() {
         i2c::enable(true);
         i2c::setCallbacks(encoder_read_callback, nullptr, this);
-        for (uint8_t i = 0; i < this->as5600_count; i++) {
-            changeChannel();
-            readMagnetStatus();
+        for (unsigned int i = 0; i < 20; i++) {
+            for (unsigned int j = 0; j < this->as5600_count; j++) {
+                changeChannel();
+                readMagnetStatus();
+                updateAngles();
+            }
         }
         return true;
     }
@@ -90,6 +97,10 @@ namespace Biped::AS5600 {
 
 
         state->raw_angle = static_cast<float>(static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1]))*360.0f / 4096.0f;
+        if (!state->reference_angle.has_value()) {
+             state->reference_angle = state->raw_angle;
+        }
+        state->normalized_angle = state->raw_angle - state->reference_angle.value();
     }
     void AS5600MUX::readMagnetStatus() {
         unsigned int channel_mask = 0b1 << this->active_channel;

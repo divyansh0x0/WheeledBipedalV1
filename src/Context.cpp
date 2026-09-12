@@ -4,7 +4,7 @@
 
 #include "Context.h"
 
-#include "ActuatorManager.h"
+#include "ServoManager.h"
 #include "AS5600MUX.h"
 #include "BatteryManager.h"
 #include "Buzzer.h"
@@ -20,7 +20,7 @@ namespace Biped::Context {
     static FanController fan_controller{};
     static INA219Manager ina219_manager{};
     static BatteryManager<10.6f, 12.6f, 98.0f, 31.8f> battery;
-    static ActuatorManager actuator_manager{};
+    static ServoManager servo_manager{};
     static MPU6050::MPU6050<I2C2, MPU6050::GyroScale::_250,
         MPU6050::AccelScale::g2> mpu6050({
         .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791f, .ax = -0.007324f, .ay = -0.01074f
@@ -38,13 +38,16 @@ namespace Biped::Context {
     float getRoll() {
         return mpu6050.getRoll();
     }
+
     float getGyroY() {
         return mpu6050.getGyroY();
     }
+
     float getGyroX() {
         return mpu6050.getGyroX();
     }
-    AS5600::AS5600MUX* getAS5600MUX() {
+
+    AS5600::AS5600MUX *getAS5600MUX() {
         return &as5600mux;
     }
 
@@ -55,6 +58,7 @@ namespace Biped::Context {
     float getCurrentHipRight() {
         return ina219_manager.ina219_data_arr[1].getCurrent();
     }
+
     float getPitch() {
         return mpu6050.getPitch();
     }
@@ -62,6 +66,7 @@ namespace Biped::Context {
     float getVoltageHipLeft() {
         return ina219_manager.ina219_data_arr[0].getVoltage();
     }
+
     float getVoltageHipRight() {
         return ina219_manager.ina219_data_arr[1].getVoltage();
     }
@@ -69,15 +74,17 @@ namespace Biped::Context {
     static void mpu_irq() {
         mpu_ready = true;
     }
-     float getBatteryPercentage() {
+
+    float getBatteryPercentage() {
         return battery.getBatteryPercentage();
     }
+
     float getBatteryVoltage() {
         return battery.getBatteryVoltage();
     }
+
     void initialize() {
         fan_controller.initialize();
-        actuator_manager.initialize();
         buzzer.initialize();
         ina219_manager.initialize();
         battery.initialize();
@@ -85,16 +92,21 @@ namespace Biped::Context {
         Biped::Pins::B4::enableInputMode();
 
         Biped::InterruptManager::attachEXTIInterrupt(Biped::InterruptManager::EXTILine::Line4, mpu_irq,
-                                                         Biped::InterruptManager::EXTISource::GPIOB,
-                                                         Biped::InterruptManager::EXTITrigger::RISING);
+                                                     Biped::InterruptManager::EXTISource::GPIOB,
+                                                     Biped::InterruptManager::EXTITrigger::RISING);
         mpu6050.initialize(true);
         as5600mux.initialize();
+        servo_manager.initialize(100.0f / 2, 173.0f / 2, as5600mux.getWheelLeft(), as5600mux.getWheelRight(),
+                                    as5600mux.getHipLeft(), as5600mux.getHipRight());
         mpu6050.beginRead();
-        Biped::Clock::delayMillis(200);
+
         last_balance_loop_time_us = Biped::Clock::micros();
+
+        buzzer.playTone(Buzzer::Tones::BEEP_BEEP);
+        Biped::Clock::delayMillis(200);
     }
 
-     void update() {
+    void update() {
         const unsigned int current_time = Biped::Clock::micros();
         // if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
         //     buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
@@ -105,7 +117,7 @@ namespace Biped::Context {
         // }
         if (mpu_ready) {
             mpu6050.beginRead();
-            actuator_manager.enableWheels();
+            servo_manager.enableWheels();
             mpu_ready = false;
         }
         if (current_time - last_balance_loop_time_us >= balance_loop_dt_us) {
@@ -116,8 +128,7 @@ namespace Biped::Context {
             direction *= -1;
         }
 
-        actuator_manager.move(0,0);
-        actuator_manager.rotateHip(direction*0.1f, direction*0.1f);
+        servo_manager.set_wheel_speed(0, 0);
         ina219_manager.update();
         mpu6050.update();
         buzzer.update();

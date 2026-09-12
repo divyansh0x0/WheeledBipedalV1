@@ -4,10 +4,18 @@
 
 #ifndef BIPEDALV1_ACTUATORMANAGER_H
 #define BIPEDALV1_ACTUATORMANAGER_H
+#include "AS5600MUX.h"
 #include "drivers/GPIO.h"
 #include "drivers/PWM.h"
 
 namespace Biped {
+    struct ServoState {
+        float radius = 0;
+        float target_angle = 0;
+        AS5600::AS5600State* encoder_state = nullptr;
+        float dt = 0;
+        float duty_cycle = 0;
+    };
     class LockedAntiPhaseSpeed {
         float m_normalized_speed;
 
@@ -23,7 +31,7 @@ namespace Biped {
             return 1.0f - toDuty();
         }
     };
-    class ActuatorManager {
+    class ServoManager {
         Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2> m_left_wheel_pwm =
                 Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2>();
         Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel3> m_right_wheel_pwm =
@@ -43,12 +51,19 @@ namespace Biped {
         using m_pin_right_wheel_dir = Biped::Pins::A2;
         using m_pin_left_thigh_pwm = Biped::Pins::A0;
         using m_pin_right_thigh_pwm = Biped::Pins::A3;
+
+        struct Servos {
+            ServoState wheel_left{};
+            ServoState wheel_right{};
+            ServoState hip_left{};
+            ServoState hip_right{};
+        } servos = {};
     public:
-        ActuatorManager() = default;
-        ActuatorManager(ActuatorManager& other) = delete;
-        ActuatorManager(ActuatorManager&& other) = delete;
+        ServoManager() = default;
+        ServoManager(ServoManager& other) = delete;
+        ServoManager(ServoManager&& other) = delete;
         
-        void initialize();
+        void initialize(float wheel_radius, float hip_joint_radius,AS5600::AS5600State* wheel_left, AS5600::AS5600State* wheel_right, AS5600::AS5600State* hip_left, AS5600::AS5600State* hip_right);
 
         void enableWheels();
 
@@ -57,7 +72,7 @@ namespace Biped {
 
         void setLeftWheel(const LockedAntiPhaseSpeed speed);
         void setRightWheel(const LockedAntiPhaseSpeed speed);
-        void move(const float speed_left, const float speed_right);
+        void set_wheel_speed(const float speed_left, const float speed_right);
 
         void update();
     };
