@@ -9,20 +9,18 @@ namespace Biped {
     constexpr float MAX_ROLL_ANGLE = 45;
     static BalancePID balance_pid{0.1350f, 0.0f, 0.0040f, 0.1350f, 0.0f, 0.0040f, 0, 0};
 
-    static float doPID() {
-        float pid_output = 0;
-        const float roll = Context::getPitch();
-        const float gyro_x = Context::getGyroX();
-        if (roll > MAX_ROLL_ANGLE || roll < -MAX_ROLL_ANGLE) {
-            pid_output = 0.0f;
-            balance_pid.reset();
-        } else {
-            pid_output = balance_pid.getRollPID(roll, gyro_x);
-        }
-        return pid_output;
+    void ServoManager::setPWM(float left_wheel, float right_wheel) {
+        const LockedAntiPhaseSpeed left_pwm{left_wheel};
+        const LockedAntiPhaseSpeed right_pwm{right_wheel};
+
+        const auto right_wheel_pwm = right_pwm.toDuty();
+        m_left_wheel_pwm.setDutyCycle(left_pwm.toInvertedDuty());
+        m_right_wheel_pwm.setDutyCycle(right_wheel_pwm);
     }
 
-    void ServoManager::initialize(float wheel_radius, float hip_joint_radius, AS5600::AS5600State* wheel_left, AS5600::AS5600State* wheel_right, AS5600::AS5600State* hip_left, AS5600::AS5600State* hip_right) {
+    void ServoManager::initialize(float wheel_radius, float hip_joint_radius, AS5600::AS5600State *wheel_left,
+                                  AS5600::AS5600State *wheel_right, AS5600::AS5600State *hip_left,
+                                  AS5600::AS5600State *hip_right) {
         Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::AHB1Peripheral::GPIOA);
         Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::APB1Peripheral::TIMER5);
 
@@ -47,7 +45,7 @@ namespace Biped {
         m_thigh_left_pwm.setDutyCycle(0);
         m_thigh_right_pwm.setDutyCycle(0);
 
-        // Enable timers to start generating the PWM signal internally
+        // Enable timers to update generating the PWM signal internally
         m_left_wheel_pwm.enable();
         m_right_wheel_pwm.enable();
         m_thigh_left_pwm.enable();
@@ -59,23 +57,24 @@ namespace Biped {
         m_pin_left_thigh_pwm::enableAlternateFunction<Biped::Peripherals::TIMER5>();
         m_pin_right_thigh_pwm::enableAlternateFunction<Biped::Peripherals::TIMER5>();
 
-        this->servos.hip_left.encoder_state = hip_left;
-        this->servos.hip_left.radius = hip_joint_radius;
-        this->servos.hip_right.encoder_state = hip_right;
-        this->servos.hip_right.radius = hip_joint_radius;
-        this->servos.wheel_left.encoder_state = wheel_left;
-        this->servos.wheel_left.radius = wheel_radius;
-        this->servos.wheel_right.encoder_state = wheel_right;
-        this->servos.wheel_right.radius = wheel_radius;
+        this->servos.hip_left = hip_left;
+        this->servos.hip_right = hip_right;
+        this->servos.wheel_left = wheel_left;
+        this->servos.wheel_right = wheel_right;
+        this->servos.wheel_right = wheel_right;
 
+        constexpr float Kp = 0.001;
+        constexpr float Ki = 0.003;
 
-        l_wheel_pid_config.kp = 0;
-        l_wheel_pid_config.ki = 0;
-        l_wheel_pid_config.kd = 0;
+        l_wheel_pid_config.kp = Kp;
+        l_wheel_pid_config.ki = Ki;
+        l_wheel_pid_config.integral_max = 1.0f/Ki;
+        l_wheel_pid_config.output_max = 1.0f;
 
-        r_wheel_pid_config.kp = 0;
-        r_wheel_pid_config.ki = 0;
-        r_wheel_pid_config.kd = 0;
+        r_wheel_pid_config.kp = Kp;
+        r_wheel_pid_config.ki = Ki;
+        r_wheel_pid_config.integral_max = 1.0f/Ki;
+        r_wheel_pid_config.output_max = 1.0f;
 
         this->l_wheel_pi_controller.initialize(&l_wheel_pid_config, nullptr);
         this->r_wheel_pi_controller.initialize(&r_wheel_pid_config, nullptr);
@@ -106,7 +105,7 @@ namespace Biped {
     }
 
     void ServoManager::setRightWheelRPM(float rpm) {
-        r_wheel_pid_config.target = rpm;
+        r_wheel_pid_config.target = -rpm;
     }
 
     void ServoManager::setWheelRPM(const float rpm_left, const float rpm_right) {
@@ -114,6 +113,11 @@ namespace Biped {
         setRightWheelRPM(rpm_right);
     }
 
+
     void ServoManager::update() {
+        const float left_wheel_pid_output = l_wheel_pi_controller.getValue(servos.wheel_left->rpm, 0);
+        const float right_wheel_pid_output = r_wheel_pi_controller.getValue(servos.wheel_right->rpm, 0);
+
+        setPWM(left_wheel_pid_output, right_wheel_pid_output);
     }
 }

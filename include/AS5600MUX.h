@@ -54,8 +54,8 @@ namespace Biped::AS5600 {
             MPOS_H = 0x04,
             MANG_L = 0x05,
             MANG_H = 0x06,
-            CONF_L = 0x07,
-            CONF_H = 0x08,
+            CONF_H = 0x07,
+            CONF_L = 0x08,
             STATUS = 0x0B,
             RAW_ANGLE_H = 0x0C, // 12-bit raw angle [11:8]
             RAW_ANGLE_L = 0x0D, // 12-bit raw angle  [7:0]
@@ -106,11 +106,11 @@ namespace Biped::AS5600 {
 
         AS5600State *getCurrentAS5600State();
 
-        void changeChannelDMA();
+        bool changeChannelDMA();
 
         void updateDataDMA();
 
-        void start();
+        void update();
 
         AS5600State * getWheelLeft() {return &as5600_states[2];};
         AS5600State * getWheelRight(){return &as5600_states[3];};

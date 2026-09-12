@@ -23,11 +23,14 @@ static void encoder_read_callback(void *ctx) {
     const unsigned int dt = current_time - state->last_read_time_us;
     state->raw_angle = new_angle;
     const float angular_velocity = angle_change / static_cast<float>(dt);
-    state->rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
-    state->normalized_angle = state->raw_angle - state->reference_angle.value();
+    const float instant_rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
+    // Apply a Low-Pass Filter (e.g. 80% old value, 20% new value) to remove 7.3 RPM quantization noise
+    const float filtered_rpm = (0.80f * state->rpm) + (0.20f * instant_rpm);
+    state->rpm = (filtered_rpm) * filtered_rpm < 0.001f ? 0.0f : filtered_rpm;
+    state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value());
     state->last_read_time_us = current_time;
-    as5600mux->changeChannelDMA();
-    as5600mux->updateDataDMA();
+    if (as5600mux->changeChannelDMA())
+        as5600mux->updateDataDMA();
 }
 
 // static void mux_write_callback(void *ctx) {
@@ -51,17 +54,18 @@ namespace Biped::AS5600 {
         return &as5600_states[this->active_as5600_index];
     }
 
-    void AS5600MUX::changeChannelDMA() {
+    bool AS5600MUX::changeChannelDMA() {
         this->active_as5600_index = (this->active_as5600_index + 1) % this->as5600_count;
         this->active_channel = this->as5600_states[this->active_as5600_index].mux_index;
         auto channel_mask = static_cast<uint8_t>(0b1 << this->active_channel);
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
             i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
         }
+        return this->active_channel != 0;
     }
 
     void AS5600MUX::updateDataDMA() {
-        // Loop until we successfully start a DMA read, to prevent infinite recursion
+        // Loop until we successfully update a DMA read, to prevent infinite recursion
         // if multiple/all sensors are disconnected and we instantly NACK.
         for (int i = 0; i < this->as5600_count; i++) {
             bool success = i2c::readRegister(AS5600_ADDR, RAW_ANGLE_H, this->getCurrentAS5600State()->buffer, 2, true);
@@ -69,15 +73,16 @@ namespace Biped::AS5600 {
                 return; // DMA started successfully, callback will handle the rest
             }
 
-            // Failed to start (NACK). Mark error, recover bus, and try the next channel.
+            // Failed to update (NACK). Mark error, recover bus, and try the next channel.
             this->getCurrentAS5600State()->status = MagnetStatus::ReadError;
             i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
-            this->changeChannelDMA();
+            if (!this->changeChannelDMA()) {
+                return; // Reached channel 0 (end of cascade), stop!
+            }
         }
     }
 
-    void AS5600MUX::start() {
-        this->changeChannelDMA();
+    void AS5600MUX::update() {
         this->updateDataDMA();
     }
 
@@ -127,7 +132,7 @@ namespace Biped::AS5600 {
         if (!state->reference_angle.has_value()) {
             state->reference_angle = state->raw_angle;
         }
-        state->normalized_angle = state->raw_angle - state->reference_angle.value();
+        state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value());
         state->last_read_time_us = current_time;
     }
 

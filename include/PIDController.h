@@ -23,10 +23,11 @@ namespace Biped::PID {
     };
 
     class PIDController {
-        PIDVars *m_pid_config;
-        Limiter *m_limiter;
+        PIDVars *m_pid_config = nullptr;
+        Limiter *m_limiter = nullptr;
 
     public:
+        PIDController() = default;
         void initialize(PIDVars *pid_config, Limiter *limiter);
 
         [[nodiscard]] float getValue(float control_value, float control_value_rate_change) const;

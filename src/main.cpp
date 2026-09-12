@@ -1,4 +1,5 @@
 #include "Context.h"
+#include "ServoManager.h"
 #include "drivers/Clock.h"
 #include "drivers/GPIO.h"
 #include "drivers/MemoryMap.h"
@@ -12,7 +13,10 @@ static inline volatile float battery_voltage;
 static inline volatile float roll;
 static inline volatile float pitch;
 static Biped::AS5600::AS5600MUX *mux = nullptr;;
+static Biped::ServoManager *servo_manager = nullptr;;
 static volatile unsigned int control_loop_rate_hz = 0;
+static volatile float right_wheel_rpm = 0;
+static volatile float left_wheel_rpm= 0;
 [[noreturn]] int main() {
     using namespace Biped;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
@@ -40,9 +44,15 @@ static volatile unsigned int control_loop_rate_hz = 0;
 
     Context::initialize();
     mux = Context::getAS5600MUX();
+    servo_manager = Context::getServoManager();
 
-
-    mux->start();
+    servo_manager->enableWheels();
+    constexpr float rpm = 60;
+    servo_manager->setLeftWheelRPM(0);
+    servo_manager->setLeftWheelRPM(0);
+    servo_manager->setLeftWheelRPM(rpm);
+    servo_manager->setRightWheelRPM(rpm);
+    mux->update();
     unsigned int t1 = Clock::millis();
     unsigned int count = 0;
     while (true) {
@@ -62,5 +72,7 @@ static volatile unsigned int control_loop_rate_hz = 0;
             count = 0;
             t1 = Clock::millis();
         }
+        right_wheel_rpm = servo_manager->getRightWheelRPM();
+        left_wheel_rpm = servo_manager->getLeftWheelRPM();
     }
 }

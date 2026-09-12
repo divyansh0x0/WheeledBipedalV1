@@ -6,6 +6,10 @@
 #define BIPEDALV1_CONTEXT_H
 #include "AS5600MUX.h"
 
+namespace Biped {
+    class ServoManager;
+}
+
 namespace Biped::Context {
     float getRoll();
 
@@ -13,18 +17,26 @@ namespace Biped::Context {
 
     float getGyroX();
 
-    AS5600::AS5600MUX* getAS5600MUX();
+    AS5600::AS5600MUX *getAS5600MUX();
+
     float getPitch();
+
     float getCurrentHipLeft();
+
     float getCurrentHipRight();
+
     float getVoltageHipLeft();
+
     float getVoltageHipRight();
+
+    ServoManager *getServoManager();
 
     void initialize();
 
     void update();
 
     float getBatteryPercentage();
+
     float getBatteryVoltage();
 }
 #endif //BIPEDALV1_CONTEXT_H

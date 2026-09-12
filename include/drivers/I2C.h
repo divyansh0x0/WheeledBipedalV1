@@ -334,7 +334,7 @@ namespace Biped {
             REG->DR = reg_addr;
             if (!waitEvent(I2CFlags::TRANSFER_REGISTER_EMPTY)) return false;
 
-            //repeated start and read
+            //repeated update and read
             REG->CR1 |= 1 << 8;
             if (!waitEvent(I2CFlags::START_BIT_GENERATED))return false;
             REG->DR = (i2c_addr << 1) | 1u; // Device Addr (For read access we set 0th bit to 1)
@@ -362,7 +362,7 @@ namespace Biped {
                 dma_stream->clearInterruptFlags();
                 dma_stream->setEnabled(true);
                 
-                clearAddress(); // Clear ADDR flag to start receiving
+                clearAddress(); // Clear ADDR flag to update receiving
             } else {
                 if (length == 1) {
                     // Clear ACK

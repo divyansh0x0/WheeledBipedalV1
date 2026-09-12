@@ -18,19 +18,39 @@ namespace Biped::PID {
     }
 
     float PIDController::getValue(float control_value, float control_value_rate_change) const {
-        PIDVars pid = *m_pid_config;
+        PIDVars* pid = m_pid_config;
 
         const unsigned int curr_time = Clock::micros();
-        const unsigned int dt = curr_time - pid.last_time_us;
-        pid.integral = static_cast<float>(dt) * (pid.target - control_value);
-        pid.last_time_us = curr_time;
+        const unsigned int dt = curr_time - pid->last_time_us;
+        const float dt_sec = static_cast<float>(dt) * 1e-6f; // Convert microseconds to seconds
+        
+        // Prevent massive spikes on the very first loop or after a long pause
+        if (dt_sec > 1.0f || pid->last_time_us == 0) {
+            pid->last_time_us = curr_time;
+            pid->last_error = pid->target - control_value;
+            return 0.0f; 
+        }
+        
+        pid->last_time_us = curr_time;
+        const float error = pid->target - control_value;
 
-        pid.integral = clamp(pid.integral, -pid.integral_max, pid.integral_max);
+        // I-Term: Accumulate integral scaled perfectly by seconds
+        pid->integral += error * dt_sec;
+        pid->integral = clamp(pid->integral, -pid->integral_max, pid->integral_max);
 
-        const float P = pid.kp * (pid.target - control_value);
-        const float D = pid.kd * control_value_rate_change;
-        const float I = pid.ki * (pid.integral);
-
-        return P + D + I;
+        // P, I, D calculations
+        const float P = pid->kp * error;
+        const float I = pid->ki * pid->integral;
+        
+        // D-term uses provided rate. (For Derivative-on-Measurement stability, Kd is typically negative)
+        const float D = pid->kd * control_value_rate_change; 
+        
+        float output = P + I + D;
+        
+        // Clamp total output safely
+        output = clamp(output, -pid->output_max, pid->output_max);
+        
+        pid->last_error = error;
+        return output;
     }
 } // Biped::PID

@@ -29,6 +29,7 @@ namespace Biped::Context {
 
     static unsigned int balance_loop_dt_us = 5 * 1'000; // 200hz balancer control loop
     static unsigned int last_balance_loop_time_us = 0;
+    static unsigned int last_as5600_update_time_us = 0;
     static unsigned int last_buzzer_update_time_us = 0;
     static unsigned int last_hip_update_time_us = 0;
 
@@ -71,6 +72,10 @@ namespace Biped::Context {
         return ina219_manager.ina219_data_arr[1].getVoltage();
     }
 
+    ServoManager *getServoManager() {
+        return &servo_manager;
+    }
+
     static void mpu_irq() {
         mpu_ready = true;
     }
@@ -97,12 +102,12 @@ namespace Biped::Context {
         mpu6050.initialize(true);
         as5600mux.initialize();
         servo_manager.initialize(100.0f / 2, 173.0f / 2, as5600mux.getWheelLeft(), as5600mux.getWheelRight(),
-                                    as5600mux.getHipLeft(), as5600mux.getHipRight());
+                                 as5600mux.getHipLeft(), as5600mux.getHipRight());
         mpu6050.beginRead();
 
         last_balance_loop_time_us = Biped::Clock::micros();
 
-        buzzer.playTone(Buzzer::Tones::BEEP_BEEP);
+        // buzzer.playTone(Buzzer::Tones::BEEP_BEEP);
         Biped::Clock::delayMillis(200);
     }
 
@@ -127,10 +132,13 @@ namespace Biped::Context {
             last_hip_update_time_us = current_time;
             direction *= -1;
         }
-
-        servo_manager.setWheelRPM(0, 0);
+        if (current_time - last_as5600_update_time_us >= 1000'000 / 300) {
+            last_as5600_update_time_us = current_time;
+            as5600mux.update();
+        }
         ina219_manager.update();
         mpu6050.update();
         buzzer.update();
+        servo_manager.update();
     }
 }

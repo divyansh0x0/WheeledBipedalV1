@@ -36,12 +36,13 @@ namespace Biped {
 
         PID::PIDVars l_wheel_pid_config{};
         PID::PIDVars r_wheel_pid_config{};
+        PID::PIDVars l_wheel_pid_config_position{};
         PID::PIDController l_wheel_pi_controller{};
         PID::PIDController r_wheel_pi_controller{};
 
-        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2> m_left_wheel_pwm =
+        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2> m_right_wheel_pwm =
                 Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2>();
-        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel3> m_right_wheel_pwm =
+        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel3> m_left_wheel_pwm =
                 Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel3>();
         Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel1> m_thigh_left_pwm =
                        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel1>();
@@ -59,12 +60,13 @@ namespace Biped {
         using m_pin_left_thigh_pwm = Biped::Pins::A0;
         using m_pin_right_thigh_pwm = Biped::Pins::A3;
 
-        struct Servos {
-            ServoState wheel_left{};
-            ServoState wheel_right{};
-            ServoState hip_left{};
-            ServoState hip_right{};
+        struct ServoStates {
+            AS5600::AS5600State* wheel_left{};
+            AS5600::AS5600State* wheel_right{};
+            AS5600::AS5600State* hip_left{};
+            AS5600::AS5600State* hip_right{};
         } servos = {};
+        void setPWM(float left_wheel, float right_wheel);
     public:
         ServoManager() = default;
         ServoManager(ServoManager& other) = delete;
@@ -82,6 +84,10 @@ namespace Biped {
         void setWheelRPM(const float speed_left, const float speed_right);
 
         void update();
+
+        volatile float getRightWheelRPM(){return servos.wheel_right->rpm;}
+
+        volatile float getLeftWheelRPM() {return servos.wheel_left->rpm;}
     };
 }
 #endif //BIPEDALV1_ACTUATORMANAGER_H
