@@ -5,6 +5,7 @@
 #ifndef BIPEDALV1_ACTUATORMANAGER_H
 #define BIPEDALV1_ACTUATORMANAGER_H
 #include "AS5600MUX.h"
+#include "PIDController.h"
 #include "drivers/GPIO.h"
 #include "drivers/PWM.h"
 
@@ -32,6 +33,12 @@ namespace Biped {
         }
     };
     class ServoManager {
+
+        PID::PIDVars l_wheel_pid_config{};
+        PID::PIDVars r_wheel_pid_config{};
+        PID::PIDController l_wheel_pi_controller{};
+        PID::PIDController r_wheel_pi_controller{};
+
         Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2> m_left_wheel_pwm =
                 Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2>();
         Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel3> m_right_wheel_pwm =
@@ -70,9 +77,9 @@ namespace Biped {
 
         void rotateHip(float speed_left, float speed_right);
 
-        void setLeftWheel(const LockedAntiPhaseSpeed speed);
-        void setRightWheel(const LockedAntiPhaseSpeed speed);
-        void set_wheel_speed(const float speed_left, const float speed_right);
+        void setLeftWheelRPM(float speed);
+        void setRightWheelRPM(float speed);
+        void setWheelRPM(const float speed_left, const float speed_right);
 
         void update();
     };

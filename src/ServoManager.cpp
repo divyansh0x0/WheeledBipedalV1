@@ -67,6 +67,18 @@ namespace Biped {
         this->servos.wheel_left.radius = wheel_radius;
         this->servos.wheel_right.encoder_state = wheel_right;
         this->servos.wheel_right.radius = wheel_radius;
+
+
+        l_wheel_pid_config.kp = 0;
+        l_wheel_pid_config.ki = 0;
+        l_wheel_pid_config.kd = 0;
+
+        r_wheel_pid_config.kp = 0;
+        r_wheel_pid_config.ki = 0;
+        r_wheel_pid_config.kd = 0;
+
+        this->l_wheel_pi_controller.initialize(&l_wheel_pid_config, nullptr);
+        this->r_wheel_pi_controller.initialize(&r_wheel_pid_config, nullptr);
     }
 
     void ServoManager::enableWheels() {
@@ -89,23 +101,19 @@ namespace Biped {
         m_thigh_right_pwm.setDutyCycle(speed_right < 0 ? -speed_right : speed_right);
     }
 
-    void ServoManager::setLeftWheel(const LockedAntiPhaseSpeed speed) {
-        m_left_wheel_pwm.setDutyCycle(speed.toDuty());
+    void ServoManager::setLeftWheelRPM(float rpm) {
+        l_wheel_pid_config.target = rpm;
     }
 
-    void ServoManager::setRightWheel(const LockedAntiPhaseSpeed speed) {
-        m_right_wheel_pwm.setDutyCycle(speed.toDuty());
+    void ServoManager::setRightWheelRPM(float rpm) {
+        r_wheel_pid_config.target = rpm;
     }
 
-    void ServoManager::set_wheel_speed(const float speed_left, const float speed_right) {
-        const LockedAntiPhaseSpeed targetSpeedLeft(speed_left);
-        const LockedAntiPhaseSpeed targetSpeedRight(speed_right);
-        setLeftWheel(targetSpeedLeft);
-        setRightWheel(targetSpeedRight);
+    void ServoManager::setWheelRPM(const float rpm_left, const float rpm_right) {
+        setLeftWheelRPM(rpm_left);
+        setRightWheelRPM(rpm_right);
     }
 
     void ServoManager::update() {
-        float pid_output = doPID();
-        this->set_wheel_speed(pid_output, pid_output);
     }
 }

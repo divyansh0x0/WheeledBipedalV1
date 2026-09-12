@@ -128,7 +128,7 @@ namespace Biped::Context {
             direction *= -1;
         }
 
-        servo_manager.set_wheel_speed(0, 0);
+        servo_manager.setWheelRPM(0, 0);
         ina219_manager.update();
         mpu6050.update();
         buzzer.update();

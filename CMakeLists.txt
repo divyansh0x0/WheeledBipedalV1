@@ -61,6 +61,8 @@ add_executable(BipedalV1
         src/Context.cpp
         src/INA219.cpp
         src/AS5600MUX.cpp
+        include/PIDController.h
+        src/PIDController.cpp
 )
 
 set_target_properties(BipedalV1 PROPERTIES SUFFIX ".elf")
