@@ -47,7 +47,7 @@ static volatile float left_wheel_rpm= 0;
     servo_manager = Context::getServoManager();
 
     servo_manager->enableWheels();
-    constexpr float rpm = 60;
+    constexpr float rpm = 20;
     servo_manager->setLeftWheelRPM(0);
     servo_manager->setLeftWheelRPM(0);
     servo_manager->setLeftWheelRPM(rpm);

@@ -98,8 +98,7 @@ dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D cmake-build-debug/BipedalV1.bi
 ### Method 2: ST-Link Programmer
 
 ```bash
-cmake --build cmake-build-debug/ --target BipedalV1 && st-flash write cmake-build-debug/BipedalV1.bin 0x08000000
-```
+cmake --build cmake-build-debug/ --target BipedalV1 && st-flash write cmake-build-debug/BipedalV1.bin 0x08000000 && st-flash reset```
 
 ## Reference Documentation
 

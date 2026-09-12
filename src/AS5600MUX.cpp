@@ -20,12 +20,45 @@ static void encoder_read_callback(void *ctx) {
 
     const unsigned int current_time = Biped::Clock::micros();
     const float angle_change = normalize_angle(new_angle - state->raw_angle);
-    const unsigned int dt = current_time - state->last_read_time_us;
+    
+    // Accumulate continuous angle to prevent wrap-around across the history window
+    state->continuous_angle += angle_change;
     state->raw_angle = new_angle;
-    const float angular_velocity = angle_change / static_cast<float>(dt);
-    const float instant_rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
-    // Apply a Low-Pass Filter (e.g. 80% old value, 20% new value) to remove 7.3 RPM quantization noise
-    const float filtered_rpm = (0.80f * state->rpm) + (0.20f * instant_rpm);
+
+    // Insert current point into history
+    state->angle_history[state->history_index] = state->continuous_angle;
+    state->time_history_us[state->history_index] = current_time;
+    
+    state->history_index++;
+    if (state->history_index >= Biped::AS5600::VELOCITY_HISTORY_SIZE) {
+        state->history_index = 0;
+        state->history_filled = true;
+    }
+
+    float instant_rpm = 0.0f;
+    if (state->history_filled) {
+        // history_index points to the oldest entry because of wrap-around
+        const float old_angle = state->angle_history[state->history_index];
+        const unsigned int old_time = state->time_history_us[state->history_index];
+        const unsigned int dt = current_time - old_time;
+        if (dt > 0) {
+            const float angle_diff = state->continuous_angle - old_angle;
+            const float angular_velocity = angle_diff / static_cast<float>(dt);
+            instant_rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
+        }
+    } else if (state->history_index > 1) { // Fallback while buffer is filling
+        const float old_angle = state->angle_history[0];
+        const unsigned int old_time = state->time_history_us[0];
+        const unsigned int dt = current_time - old_time;
+        if (dt > 0) {
+            const float angle_diff = state->continuous_angle - old_angle;
+            const float angular_velocity = angle_diff / static_cast<float>(dt);
+            instant_rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
+        }
+    }
+
+    // Heavy smoothing is required to handle the noise when the AS5600 Fast Filter engages
+    const float filtered_rpm = (0.95f * state->rpm) + (0.05f * instant_rpm);
     state->rpm = (filtered_rpm) * filtered_rpm < 0.001f ? 0.0f : filtered_rpm;
     state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value());
     state->last_read_time_us = current_time;
@@ -122,13 +155,52 @@ namespace Biped::AS5600 {
 
 
         const unsigned int current_time = Clock::micros();
-        const float angle_change = new_angle - state->raw_angle;
-        if (state->last_read_time_us == 0.0)
+        if (state->last_read_time_us == 0) {
             state->last_read_time_us = current_time;
-        const unsigned int dt = current_time - state->last_read_time_us;
+            state->raw_angle = new_angle;
+            state->continuous_angle = new_angle;
+            state->history_index = 0;
+            state->history_filled = false;
+        }
+
+        const float angle_change = normalize_angle(new_angle - state->raw_angle);
+        state->continuous_angle += angle_change;
         state->raw_angle = new_angle;
-        const float angular_velocity = angle_change / static_cast<float>(dt);
-        state->rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
+
+        state->angle_history[state->history_index] = state->continuous_angle;
+        state->time_history_us[state->history_index] = current_time;
+        
+        state->history_index++;
+        if (state->history_index >= VELOCITY_HISTORY_SIZE) {
+            state->history_index = 0;
+            state->history_filled = true;
+        }
+
+        float instant_rpm = 0.0f;
+        if (state->history_filled) {
+            const float old_angle = state->angle_history[state->history_index];
+            const unsigned int old_time = state->time_history_us[state->history_index];
+            const unsigned int dt = current_time - old_time;
+            if (dt > 0) {
+                const float angle_diff = state->continuous_angle - old_angle;
+                const float angular_velocity = angle_diff / static_cast<float>(dt);
+                instant_rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
+            }
+        } else if (state->history_index > 1) {
+            const float old_angle = state->angle_history[0];
+            const unsigned int old_time = state->time_history_us[0];
+            const unsigned int dt = current_time - old_time;
+            if (dt > 0) {
+                const float angle_diff = state->continuous_angle - old_angle;
+                const float angular_velocity = angle_diff / static_cast<float>(dt);
+                instant_rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
+            }
+        }
+
+        // Heavy smoothing is required to handle the noise when the AS5600 Fast Filter engages
+        const float filtered_rpm = (0.95f * state->rpm) + (0.05f * instant_rpm);
+        state->rpm = (filtered_rpm) * filtered_rpm < 0.001f ? 0.0f : filtered_rpm;
+
         if (!state->reference_angle.has_value()) {
             state->reference_angle = state->raw_angle;
         }

@@ -30,7 +30,7 @@ namespace Biped::Context {
     static unsigned int balance_loop_dt_us = 5 * 1'000; // 200hz balancer control loop
     static unsigned int last_balance_loop_time_us = 0;
     static unsigned int last_as5600_update_time_us = 0;
-    static unsigned int last_buzzer_update_time_us = 0;
+    static unsigned int last_servo_velocity_update_time_us = 0;
     static unsigned int last_hip_update_time_us = 0;
 
     static float direction = 1.0f;
@@ -132,13 +132,16 @@ namespace Biped::Context {
             last_hip_update_time_us = current_time;
             direction *= -1;
         }
-        if (current_time - last_as5600_update_time_us >= 1000'000 / 300) {
+        if (current_time - last_as5600_update_time_us >= 1000'000 / 80) {
             last_as5600_update_time_us = current_time;
             as5600mux.update();
+        }
+        if (current_time - last_servo_velocity_update_time_us >= 1000'000 / 250) {
+            last_servo_velocity_update_time_us = current_time;
+            servo_manager.update();
         }
         ina219_manager.update();
         mpu6050.update();
         buzzer.update();
-        servo_manager.update();
     }
 }

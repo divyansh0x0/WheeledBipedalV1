@@ -26,13 +26,23 @@ namespace Biped::AS5600 {
         ReadError = 4, // I2C / mux communication failure
     };
 
+    static constexpr size_t VELOCITY_HISTORY_SIZE = 16;
+
     struct AS5600State {
         uint8_t mux_index{};
         float raw_angle{};
         std::optional<float>  reference_angle{};
         float normalized_angle{};
         float rpm{};
-        unsigned int last_read_time_us = 0.0f;
+        unsigned int last_read_time_us = 0;
+        
+        // Velocity estimation variables
+        float continuous_angle{};
+        float angle_history[VELOCITY_HISTORY_SIZE]{};
+        unsigned int time_history_us[VELOCITY_HISTORY_SIZE]{};
+        size_t history_index{};
+        bool history_filled{};
+
         MagnetStatus status{MagnetStatus::NotDetected};
         uint8_t buffer[2] = {};
     };
