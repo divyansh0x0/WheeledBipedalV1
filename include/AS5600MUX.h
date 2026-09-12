@@ -32,8 +32,9 @@ namespace Biped::AS5600 {
         std::optional<float>  reference_angle{};
         float normalized_angle{};
         float rpm{};
-        MagnetStatus status{};
-        uint8_t buffer[2];
+        unsigned int last_read_time_us = 0.0f;
+        MagnetStatus status{MagnetStatus::NotDetected};
+        uint8_t buffer[2] = {};
     };
 
     // PCA9548A Multiplexer has been used
@@ -63,25 +64,22 @@ namespace Biped::AS5600 {
             AGC = 0x1A,
             MAGNITUDE_H = 0x1B,
             MAGNITUDE_L = 0x1C,
+
         };
 
         unsigned int as5600_count = 4;
         AS5600State as5600_states[4] = {
             {
-                .mux_index = 0, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected, .buffer{} // hip right
+                .mux_index = 0, // hip right
             },
             {
-                .mux_index = 1, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected, .buffer{} // hip left
+                .mux_index = 1, // hip left
             },
             {
-                .mux_index = 2, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected, .buffer{} // wheel left
+                .mux_index = 2, // wheel left
             },
             {
-                .mux_index = 3, .raw_angle = 0.0f, .normalized_angle = 0.0f, .rpm = 0.0f,
-                .status = MagnetStatus::NotDetected, .buffer{} //wheel right
+                .mux_index = 3, //wheel right
             }
         };
         uint8_t active_as5600_index = 0;
@@ -114,10 +112,10 @@ namespace Biped::AS5600 {
 
         void start();
 
-        AS5600::AS5600State * getWheelLeft() {return &as5600_states[2];};
-        AS5600::AS5600State * getWheelRight(){return &as5600_states[3];};
-        AS5600::AS5600State * getHipLeft(){return &as5600_states[1];};
-        AS5600::AS5600State * getHipRight(){return &as5600_states[0];};
+        AS5600State * getWheelLeft() {return &as5600_states[2];};
+        AS5600State * getWheelRight(){return &as5600_states[3];};
+        AS5600State * getHipLeft(){return &as5600_states[1];};
+        AS5600State * getHipRight(){return &as5600_states[0];};
     };
 }
 #endif //BIPEDALV1_AS5600_H

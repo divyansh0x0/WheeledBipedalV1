@@ -5,14 +5,27 @@
 #include "AS5600MUX.h"
 #include "drivers/GPIO.h"
 
+static float normalize_angle(float angle) {
+    return angle > 180 ? angle - 360 : angle < -180 ? angle + 360 : angle;
+}
+
 static void encoder_read_callback(void *ctx) {
     const auto as5600mux = reinterpret_cast<Biped::AS5600::AS5600MUX *>(ctx);
     Biped::AS5600::AS5600State *state = as5600mux->getCurrentAS5600State();
-    state->raw_angle = 360.0f/4096.0f * static_cast<float>(static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1]));
-    if (!state->reference_angle.has_value()) {
-        state->reference_angle = state->raw_angle;
-    }
+    const float new_angle =
+            static_cast<float>(static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1])) *
+            360.0f
+            / 4096.0f;
+
+
+    const unsigned int current_time = Biped::Clock::micros();
+    const float angle_change = normalize_angle(new_angle - state->raw_angle);
+    const unsigned int dt = current_time - state->last_read_time_us;
+    state->raw_angle = new_angle;
+    const float angular_velocity = angle_change / static_cast<float>(dt);
+    state->rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
     state->normalized_angle = state->raw_angle - state->reference_angle.value();
+    state->last_read_time_us = current_time;
     as5600mux->changeChannelDMA();
     as5600mux->updateDataDMA();
 }
@@ -55,13 +68,14 @@ namespace Biped::AS5600 {
             if (success) {
                 return; // DMA started successfully, callback will handle the rest
             }
-            
+
             // Failed to start (NACK). Mark error, recover bus, and try the next channel.
             this->getCurrentAS5600State()->status = MagnetStatus::ReadError;
             i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
             this->changeChannelDMA();
         }
     }
+
     void AS5600MUX::start() {
         this->changeChannelDMA();
         this->updateDataDMA();
@@ -96,12 +110,27 @@ namespace Biped::AS5600 {
         }
 
 
-        state->raw_angle = static_cast<float>(static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1]))*360.0f / 4096.0f;
+        const float new_angle = normalize_angle(
+            static_cast<float>(static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1])) *
+            360.0f
+            / 4096.0f);
+
+
+        const unsigned int current_time = Clock::micros();
+        const float angle_change = new_angle - state->raw_angle;
+        if (state->last_read_time_us == 0.0)
+            state->last_read_time_us = current_time;
+        const unsigned int dt = current_time - state->last_read_time_us;
+        state->raw_angle = new_angle;
+        const float angular_velocity = angle_change / static_cast<float>(dt);
+        state->rpm = angular_velocity / 360.0f * 1e6f * 60.0f;
         if (!state->reference_angle.has_value()) {
-             state->reference_angle = state->raw_angle;
+            state->reference_angle = state->raw_angle;
         }
         state->normalized_angle = state->raw_angle - state->reference_angle.value();
+        state->last_read_time_us = current_time;
     }
+
     void AS5600MUX::readMagnetStatus() {
         unsigned int channel_mask = 0b1 << this->active_channel;
         AS5600State *state = &this->as5600_states[this->active_as5600_index];
