@@ -5,7 +5,7 @@
 #include "Context.h"
 
 #include "ServoManager.h"
-#include "AS5600MUX.h"
+#include "EncoderI2CMux.h"
 #include "BatteryManager.h"
 #include "Buzzer.h"
 #include "FanController.h"
@@ -25,7 +25,7 @@ namespace Biped::Context {
         MPU6050::AccelScale::g2> mpu6050({
         .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791f, .ax = -0.007324f, .ay = -0.01074f
     });
-    static AS5600::AS5600MUX as5600mux{};
+    static MagneticEncoder::EncoderI2CMux as5600mux{};
 
     static unsigned int balance_loop_dt_us = 5 * 1'000; // 200hz balancer control loop
     static unsigned int last_balance_loop_time_us = 0;
@@ -48,7 +48,7 @@ namespace Biped::Context {
         return mpu6050.getGyroX();
     }
 
-    AS5600::AS5600MUX *getAS5600MUX() {
+    MagneticEncoder::EncoderI2CMux *getEncoderI2CMux() {
         return &as5600mux;
     }
 

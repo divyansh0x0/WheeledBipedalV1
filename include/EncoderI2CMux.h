@@ -11,7 +11,8 @@
 #include "drivers/I2C.h"
 #include "drivers/Clock.h"
 
-namespace Biped::AS5600 {
+namespace Biped::MagneticEncoder {
+    using i2c = I2C1;
     /**
      * Magnet status reported by the AS5600 STATUS register (0x0B).
      *   MD (bit 5) – magnet detected
@@ -28,67 +29,52 @@ namespace Biped::AS5600 {
 
     static constexpr size_t VELOCITY_HISTORY_SIZE = 16;
 
-    struct AS5600State {
+    struct Encoder {
+        enum class EncoderType : uint8_t {
+            MT6701,
+            AS5600
+        } type = EncoderType::MT6701;
+
         uint8_t mux_index{};
+        std::optional<float> reference_angle{};
         float raw_angle{};
-        std::optional<float>  reference_angle{};
         float normalized_angle{};
         float rpm{};
         unsigned int last_read_time_us = 0;
-        
-        // Velocity estimation variables
-        float continuous_angle{};
-        float angle_history[VELOCITY_HISTORY_SIZE]{};
-        unsigned int time_history_us[VELOCITY_HISTORY_SIZE]{};
-        size_t history_index{};
-        bool history_filled{};
 
-        MagnetStatus status{MagnetStatus::NotDetected};
+        std::optional<MagnetStatus> status{MagnetStatus::NotDetected};
         uint8_t buffer[2] = {};
+
+        void updateAngle();
+
+        void readMagnetStatus();
     };
 
     // PCA9548A Multiplexer has been used
-    class AS5600MUX {
-        using i2c = I2C1;
-
+    class EncoderI2CMux {
         // ── Addresses ─────────────────────────────────────────────
         static inline uint8_t PCA9548A_ADDR = 0x70;
         static constexpr uint8_t AS5600_ADDR = 0x36;
 
         // ── AS5600 Register map ───────────────────────────────────
-        enum Registers : uint8_t {
-            ZMCO = 0x0,
-            ZPOS_L = 0x01,
-            ZPOS_H = 0x02,
-            MPOS_L = 0x03,
-            MPOS_H = 0x04,
-            MANG_L = 0x05,
-            MANG_H = 0x06,
-            CONF_H = 0x07,
-            CONF_L = 0x08,
-            STATUS = 0x0B,
-            RAW_ANGLE_H = 0x0C, // 12-bit raw angle [11:8]
-            RAW_ANGLE_L = 0x0D, // 12-bit raw angle  [7:0]
-            ANGLE_H = 0x0E, // 12-bit filtered angle [11:8]
-            ANGLE_L = 0x0F, // 12-bit filtered angle  [7:0]
-            AGC = 0x1A,
-            MAGNITUDE_H = 0x1B,
-            MAGNITUDE_L = 0x1C,
 
-        };
 
         unsigned int as5600_count = 4;
-        AS5600State as5600_states[4] = {
+        Encoder as5600_states[4] = {
             {
+                .type = Encoder::EncoderType::AS5600,
                 .mux_index = 0, // hip right
             },
             {
+                .type = Encoder::EncoderType::AS5600,
                 .mux_index = 1, // hip left
             },
             {
+                .type = Encoder::EncoderType::MT6701,
                 .mux_index = 2, // wheel left
             },
             {
+                .type = Encoder::EncoderType::MT6701,
                 .mux_index = 3, //wheel right
             }
         };
@@ -104,7 +90,7 @@ namespace Biped::AS5600 {
         unsigned int current_mux_index = 0;
 
     public:
-        AS5600MUX() = default;
+        EncoderI2CMux() = default;
 
         bool initialize();
 
@@ -114,7 +100,7 @@ namespace Biped::AS5600 {
 
         bool changeChannel();
 
-        AS5600State *getCurrentAS5600State();
+        Encoder *getCurrentEncoder();
 
         bool changeChannelDMA();
 
@@ -122,10 +108,10 @@ namespace Biped::AS5600 {
 
         void update();
 
-        AS5600State * getWheelLeft() {return &as5600_states[2];};
-        AS5600State * getWheelRight(){return &as5600_states[3];};
-        AS5600State * getHipLeft(){return &as5600_states[1];};
-        AS5600State * getHipRight(){return &as5600_states[0];};
+        Encoder *getWheelLeft() { return &as5600_states[2]; };
+        Encoder *getWheelRight() { return &as5600_states[3]; };
+        Encoder *getHipLeft() { return &as5600_states[1]; };
+        Encoder *getHipRight() { return &as5600_states[0]; };
     };
 }
 #endif //BIPEDALV1_AS5600_H

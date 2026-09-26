@@ -4,7 +4,7 @@
 
 #ifndef BIPEDALV1_ACTUATORMANAGER_H
 #define BIPEDALV1_ACTUATORMANAGER_H
-#include "AS5600MUX.h"
+#include "EncoderI2CMux.h"
 #include "PIDController.h"
 #include "drivers/GPIO.h"
 #include "drivers/PWM.h"
@@ -13,7 +13,7 @@ namespace Biped {
     struct ServoState {
         float radius = 0;
         float target_angle = 0;
-        AS5600::AS5600State* encoder_state = nullptr;
+        MagneticEncoder::EncoderI2CMux* encoder_state = nullptr;
         float dt = 0;
         float duty_cycle = 0;
     };
@@ -61,10 +61,10 @@ namespace Biped {
         using m_pin_right_thigh_pwm = Biped::Pins::A3;
 
         struct ServoStates {
-            AS5600::AS5600State* wheel_left{};
-            AS5600::AS5600State* wheel_right{};
-            AS5600::AS5600State* hip_left{};
-            AS5600::AS5600State* hip_right{};
+            MagneticEncoder::Encoder* wheel_left{};
+            MagneticEncoder::Encoder* wheel_right{};
+            MagneticEncoder::Encoder* hip_left{};
+            MagneticEncoder::Encoder* hip_right{};
         } servos = {};
         void setPWM(float left_wheel, float right_wheel);
     public:
@@ -72,7 +72,7 @@ namespace Biped {
         ServoManager(ServoManager& other) = delete;
         ServoManager(ServoManager&& other) = delete;
         
-        void initialize(float wheel_radius, float hip_joint_radius,AS5600::AS5600State* wheel_left, AS5600::AS5600State* wheel_right, AS5600::AS5600State* hip_left, AS5600::AS5600State* hip_right);
+        void initialize(float wheel_radius, float hip_joint_radius,MagneticEncoder::Encoder* wheel_left, MagneticEncoder::Encoder* wheel_right, MagneticEncoder::Encoder* hip_left, MagneticEncoder::Encoder* hip_right);
 
         void enableWheels();
 

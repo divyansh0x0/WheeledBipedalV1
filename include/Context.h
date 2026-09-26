@@ -4,7 +4,7 @@
 
 #ifndef BIPEDALV1_CONTEXT_H
 #define BIPEDALV1_CONTEXT_H
-#include "AS5600MUX.h"
+#include "EncoderI2CMux.h"
 
 namespace Biped {
     class ServoManager;
@@ -17,7 +17,7 @@ namespace Biped::Context {
 
     float getGyroX();
 
-    AS5600::AS5600MUX *getAS5600MUX();
+    MagneticEncoder::EncoderI2CMux *getEncoderI2CMux();
 
     float getPitch();
 

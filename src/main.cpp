@@ -12,7 +12,7 @@ static inline volatile float battery_percentage;
 static inline volatile float battery_voltage;
 static inline volatile float roll;
 static inline volatile float pitch;
-static Biped::AS5600::AS5600MUX *mux = nullptr;;
+static Biped::MagneticEncoder::EncoderI2CMux *mux = nullptr;;
 static Biped::ServoManager *servo_manager = nullptr;;
 static volatile unsigned int control_loop_rate_hz = 0;
 static volatile float right_wheel_rpm = 0;
@@ -43,7 +43,7 @@ static volatile float left_wheel_rpm= 0;
     Pins::A8::enableAlternateFunction<Peripherals::SCL3>();
 
     Context::initialize();
-    mux = Context::getAS5600MUX();
+    mux = Context::getEncoderI2CMux();
     servo_manager = Context::getServoManager();
 
     servo_manager->enableWheels();
@@ -69,6 +69,7 @@ static volatile float left_wheel_rpm= 0;
 
         if (Clock::millis() - t1 > 1000) {
             control_loop_rate_hz = count;
+            Pins::C13::toggle();
             count = 0;
             t1 = Clock::millis();
         }

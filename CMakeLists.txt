@@ -60,7 +60,7 @@ add_executable(BipedalV1
         src/drivers/Clock.cpp
         src/Context.cpp
         src/INA219.cpp
-        src/AS5600MUX.cpp
+        src/EncoderI2CMux.cpp
         include/PIDController.h
         src/PIDController.cpp
 )

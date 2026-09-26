@@ -18,9 +18,9 @@ namespace Biped {
         m_right_wheel_pwm.setDutyCycle(right_wheel_pwm);
     }
 
-    void ServoManager::initialize(float wheel_radius, float hip_joint_radius, AS5600::AS5600State *wheel_left,
-                                  AS5600::AS5600State *wheel_right, AS5600::AS5600State *hip_left,
-                                  AS5600::AS5600State *hip_right) {
+    void ServoManager::initialize(float wheel_radius, float hip_joint_radius, MagneticEncoder::Encoder *wheel_left,
+                                  MagneticEncoder::Encoder *wheel_right, MagneticEncoder::Encoder *hip_left,
+                                  MagneticEncoder::Encoder *hip_right) {
         Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::AHB1Peripheral::GPIOA);
         Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::APB1Peripheral::TIMER5);
 
