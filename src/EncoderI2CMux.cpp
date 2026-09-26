@@ -20,15 +20,17 @@ static void encoder_read_callback(void *ctx) {
     const float max_counts = is_as5600 ? 4096.0f : 16384.0f;
     const float new_angle = static_cast<float>(angle_raw) * 360.0f / max_counts;
 
-
     const unsigned int current_time = F411::Clock::micros();
     const float angle_change = normalize_angle(new_angle - state->raw_angle);
     const unsigned int dt = current_time - state->last_read_time_us;
-    const float rpm = (angle_change * 1e6f/60.0f)/static_cast<float>(dt);
-    // Accumulate continuous angle to prevent wrap-around across the history window
+    // RPM = (Δθ_degrees / 360) × (60 × 1e6 / Δt_us) = Δθ × 1e6 / (6 × Δt)
+    const float instantaneous_rpm = (angle_change * 1e6f / 6.0f) / static_cast<float>(dt);
+
+    // EMA low pass filter on RPM: alpha = 0.3 → heavier smoothing, 0.8 → lighter smoothing
+    constexpr float alpha = 0.3f;
+    state->rpm = alpha * instantaneous_rpm + (1.0f - alpha) * state->rpm;
+
     state->raw_angle = new_angle;
-    state->rpm = rpm;
-    // Insert current point into history
     state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value_or(0.0f));
     state->last_read_time_us = current_time;
     if (mux->changeChannelDMA())
@@ -130,7 +132,7 @@ namespace Biped::MagneticEncoder {
 
         const float angle_change = normalize_angle(new_angle - this->raw_angle);
         const unsigned int dt = current_time - this->last_read_time_us;
-        this->rpm = (angle_change * 1e6f / 60.0f) / static_cast<float>(dt);
+        this->rpm = (angle_change * 1e6f / 6.0f) / static_cast<float>(dt);
 
         this->raw_angle = new_angle;
         this->normalized_angle = normalize_angle(this->raw_angle - this->reference_angle.value_or(0.0f));

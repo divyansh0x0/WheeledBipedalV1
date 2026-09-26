@@ -65,7 +65,6 @@ namespace Biped {
             MagneticEncoder::Encoder* hip_left{};
             MagneticEncoder::Encoder* hip_right{};
         } servos = {};
-        void setPWM(float left_wheel, float right_wheel);
     public:
         ServoManager() = default;
         ServoManager(ServoManager& other) = delete;
@@ -74,6 +73,7 @@ namespace Biped {
         void initialize(float wheel_radius, float hip_joint_radius,MagneticEncoder::Encoder* wheel_left, MagneticEncoder::Encoder* wheel_right, MagneticEncoder::Encoder* hip_left, MagneticEncoder::Encoder* hip_right);
 
         void enableWheels(bool enable);
+        void setPWM(float left_wheel, float right_wheel);
 
 
         void rotateHip(float speed_left, float speed_right);

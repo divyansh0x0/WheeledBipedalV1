@@ -49,12 +49,7 @@ static volatile float right_wheel_angle= 0;
     mux = Context::getEncoderI2CMux();
     servo_manager = Context::getServoManager();
 
-    servo_manager->enableWheels(false);
-    constexpr float rpm = 20;
-    servo_manager->setLeftWheelRPM(0);
-    servo_manager->setLeftWheelRPM(0);
-    servo_manager->setLeftWheelRPM(rpm);
-    servo_manager->setRightWheelRPM(rpm);
+    servo_manager->enableWheels(true);
     mux->update();
     unsigned int t1 = Clock::millis();
     unsigned int count = 0;
@@ -80,5 +75,6 @@ static volatile float right_wheel_angle= 0;
         left_wheel_rpm = servo_manager->getLeftWheelRPM();
         left_wheel_angle = servo_manager->getLeftWheelAngle();
         right_wheel_angle = servo_manager->getRightWheelAngle();
+        servo_manager->setPWM(0.2f,0.0f);
     }
 }
