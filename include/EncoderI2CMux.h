@@ -57,7 +57,7 @@ namespace Biped::MagneticEncoder {
 
 
         unsigned int as5600_count = 4;
-        Encoder as5600_states[4] = {
+        Encoder encoder_states[4] = {
             {
                 .type = Encoder::EncoderType::AS5600,
                 .mux_index = 0, // hip right
@@ -105,10 +105,10 @@ namespace Biped::MagneticEncoder {
 
         void update();
 
-        Encoder *getWheelLeft() { return &as5600_states[2]; };
-        Encoder *getWheelRight() { return &as5600_states[3]; };
-        Encoder *getHipLeft() { return &as5600_states[1]; };
-        Encoder *getHipRight() { return &as5600_states[0]; };
+        Encoder *getWheelLeft() { return &encoder_states[2]; };
+        Encoder *getWheelRight() { return &encoder_states[3]; };
+        Encoder *getHipLeft() { return &encoder_states[1]; };
+        Encoder *getHipRight() { return &encoder_states[0]; };
     };
 }
 #endif //BIPEDALV1_AS5600_H

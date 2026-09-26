@@ -5,9 +5,10 @@
 #ifndef BIPEDALV1_PWM_H
 #define BIPEDALV1_PWM_H
 
+#include <cmath>
+
 #include "Clock.h"
 #include "MemoryMap.h"
-#include <cmath>
 namespace F411::PWM {
     enum class Timer {
         TIMER2 = 0x4000'0000u,
@@ -48,7 +49,7 @@ namespace F411::PWM {
         void setDutyCycle(float duty_cycle) {
             const auto reg = reinterpret_cast<MemoryMap::TIMER *>(timer);
             const auto ccr_value = static_cast<uint32_t>(
-                std::round((static_cast<float>(reg->ARR + 1u) * duty_cycle))
+                roundf((static_cast<float>(reg->ARR + 1u) * duty_cycle))
             );
             if constexpr (channel == TimerChannel::Channel1) {
                 reg->CCR1 = ccr_value;

@@ -12,13 +12,13 @@ static float normalize_angle(float angle) {
 static void encoder_read_callback(void *ctx) {
     const auto mux = reinterpret_cast<Biped::MagneticEncoder::EncoderI2CMux *>(ctx);
     Biped::MagneticEncoder::Encoder *state = mux->getCurrentEncoder();
-    const float max_angle_binary = state->type == Biped::MagneticEncoder::Encoder::EncoderType::AS5600
-                                       ? 4096.0f
-                                       : 16384.0f;
-    const float new_angle =
-            static_cast<float>(static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1])) *
-            360.0f
-            / max_angle_binary;
+    const uint16_t raw = static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1]);
+    const bool is_as5600 = state->type == Biped::MagneticEncoder::Encoder::EncoderType::AS5600;
+    // AS5600: 12-bit angle in bits [11:0], upper 4 bits are undefined → mask
+    // MT6701: 14-bit angle in bits [15:2], lower 2 bits are status  → shift
+    const uint16_t angle_raw = is_as5600 ? (raw & 0x0FFF) : (raw >> 2);
+    const float max_counts = is_as5600 ? 4096.0f : 16384.0f;
+    const float new_angle = static_cast<float>(angle_raw) * 360.0f / max_counts;
 
 
     const unsigned int current_time = F411::Clock::micros();
@@ -29,7 +29,7 @@ static void encoder_read_callback(void *ctx) {
     state->raw_angle = new_angle;
     state->rpm = rpm;
     // Insert current point into history
-    state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value());
+    state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value_or(0.0f));
     state->last_read_time_us = current_time;
     if (mux->changeChannelDMA())
         mux->updateDataDMA();
@@ -39,8 +39,8 @@ static void encoder_read_callback(void *ctx) {
 //     const auto as5600mux = reinterpret_cast<Biped::AS5600::EncoderI2CMux *>(ctx);
 //     as5600mux->updateDataDMA();
 // }
-static unsigned int AS5600_ADDR = 0x36;
-static unsigned int MT6701_ADDR = 0x06;
+static constexpr uint8_t AS5600_ADDR = 0x36;
+static constexpr uint8_t MT6701_ADDR = 0x06;
 
 enum class AS5600Registers : uint8_t {
     ZMCO = 0x0,
@@ -90,11 +90,12 @@ namespace Biped::MagneticEncoder {
 
         if (!md)
             this->status = MagnetStatus::NotDetected;
-        if (ml)
+        else if (ml)
             this->status = MagnetStatus::TooWeak;
-        if (mh)
+        else if (mh)
             this->status = MagnetStatus::TooStrong;
-        this->status = MagnetStatus::OK;
+        else
+            this->status = MagnetStatus::OK;
     }
 
     void Encoder::updateAngle() {
@@ -113,28 +114,32 @@ namespace Biped::MagneticEncoder {
             }
         }
 
-        const float max_angle_bit = this->type == EncoderType::AS5600 ? 4096.0f : 16384.0f;
-        const float new_angle = normalize_angle(
-            static_cast<float>(static_cast<uint16_t>(this->buffer[0] << 8 | this->buffer[1])) *
-            360.0f
-            / max_angle_bit);
-
+        const uint16_t raw = static_cast<uint16_t>(this->buffer[0] << 8 | this->buffer[1]);
+        // AS5600: 12-bit angle in bits [11:0], upper 4 bits are undefined → mask
+        // MT6701: 14-bit angle in bits [15:2], lower 2 bits are status  → shift
+        const uint16_t angle_raw = (this->type == EncoderType::AS5600) ? (raw & 0x0FFF) : (raw >> 2);
+        const float max_angle_bit = (this->type == EncoderType::AS5600) ? 4096.0f : 16384.0f;
+        const float new_angle = static_cast<float>(angle_raw) * 360.0f / max_angle_bit;
 
         const unsigned int current_time = F411::Clock::micros();
         if (this->last_read_time_us == 0) {
             this->last_read_time_us = current_time;
             this->raw_angle = new_angle;
+            return; // Can't compute RPM on first sample
         }
 
-        this->raw_angle = new_angle;
+        const float angle_change = normalize_angle(new_angle - this->raw_angle);
+        const unsigned int dt = current_time - this->last_read_time_us;
+        this->rpm = (angle_change * 1e6f / 60.0f) / static_cast<float>(dt);
 
-        this->normalized_angle = normalize_angle(this->raw_angle - this->reference_angle.value());
+        this->raw_angle = new_angle;
+        this->normalized_angle = normalize_angle(this->raw_angle - this->reference_angle.value_or(0.0f));
         this->last_read_time_us = current_time;
     }
 
     bool EncoderI2CMux::changeChannel() {
         this->active_as5600_index = (this->active_as5600_index + 1) % this->as5600_count;
-        this->active_channel = this->as5600_states[this->active_as5600_index].mux_index;
+        this->active_channel = this->encoder_states[this->active_as5600_index].mux_index;
         bool success = i2c::writeRegister(PCA9548A_ADDR, static_cast<uint8_t>(0b1 << this->active_channel), nullptr, 0,
                                           false);
         if (!success) {
@@ -144,17 +149,18 @@ namespace Biped::MagneticEncoder {
     }
 
     Encoder *EncoderI2CMux::getCurrentEncoder() {
-        return &as5600_states[this->active_as5600_index];
+        return &encoder_states[this->active_as5600_index];
     }
 
     bool EncoderI2CMux::changeChannelDMA() {
         this->active_as5600_index = (this->active_as5600_index + 1) % this->as5600_count;
-        this->active_channel = this->as5600_states[this->active_as5600_index].mux_index;
+        this->active_channel = this->encoder_states[this->active_as5600_index].mux_index;
         auto channel_mask = static_cast<uint8_t>(0b1 << this->active_channel);
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
             i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
         }
-        return this->active_channel != 0;
+        // Return false when we've wrapped back to the start (full cycle done)
+        return this->active_as5600_index != 0;
     }
 
     void EncoderI2CMux::updateDataDMA() {
@@ -165,7 +171,7 @@ namespace Biped::MagneticEncoder {
                     current_encoder->buffer, 2, true)) {
                 return; // DMA started successfully, callback will handle the rest
             }
-            if (current_encoder->type == Encoder::EncoderType::MT6701 && i2c::readRegister(
+            if (current_encoder->type == Encoder::EncoderType::AS5600 && i2c::readRegister(
                     AS5600_ADDR, static_cast<uint8_t>(AS5600Registers::RAW_ANGLE_H),
                     current_encoder->buffer, 2, true)) {
                 return; // DMA started successfully, callback will handle the rest
@@ -175,7 +181,7 @@ namespace Biped::MagneticEncoder {
             current_encoder->status = MagnetStatus::ReadError;
             i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             if (!this->changeChannelDMA()) {
-                return; // Reached channel 0
+                return; // Wrapped around
             }
         }
     }
@@ -187,6 +193,8 @@ namespace Biped::MagneticEncoder {
     bool EncoderI2CMux::initialize() {
         i2c::enable(true);
         i2c::setCallbacks(encoder_read_callback, nullptr, this);
+
+        // Read all encoders multiple times to let the readings settle
         for (unsigned int i = 0; i < 20; i++) {
             for (unsigned int j = 0; j < this->as5600_count; j++) {
                 changeChannel();
@@ -194,12 +202,19 @@ namespace Biped::MagneticEncoder {
                 updateAngles();
             }
         }
+
+        // Capture each encoder's current position as its zero reference
+        for (unsigned int j = 0; j < this->as5600_count; j++) {
+            this->encoder_states[j].reference_angle = this->encoder_states[j].raw_angle;
+            this->encoder_states[j].normalized_angle = 0.0f;
+        }
+
         return true;
     }
 
     void EncoderI2CMux::updateAngles() {
         unsigned int channel_mask = 0b1 << this->active_channel;
-        Encoder *state = &this->as5600_states[this->active_as5600_index];
+        Encoder *state = &this->encoder_states[this->active_as5600_index];
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
             i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             state->status = MagnetStatus::ReadError;
@@ -210,7 +225,7 @@ namespace Biped::MagneticEncoder {
 
     void EncoderI2CMux::readMagnetStatus() {
         const unsigned int channel_mask = 0b1 << this->active_channel;
-        Encoder *state = &this->as5600_states[this->active_as5600_index];
+        Encoder *state = &this->encoder_states[this->active_as5600_index];
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
             i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             state->status = MagnetStatus::ReadError;

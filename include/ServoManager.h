@@ -73,7 +73,7 @@ namespace Biped {
         
         void initialize(float wheel_radius, float hip_joint_radius,MagneticEncoder::Encoder* wheel_left, MagneticEncoder::Encoder* wheel_right, MagneticEncoder::Encoder* hip_left, MagneticEncoder::Encoder* hip_right);
 
-        void enableWheels();
+        void enableWheels(bool enable);
 
 
         void rotateHip(float speed_left, float speed_right);
@@ -84,9 +84,13 @@ namespace Biped {
 
         void update();
 
-        volatile float getRightWheelRPM(){return servos.wheel_right->rpm;}
+        float getRightWheelRPM(){return servos.wheel_right->rpm;}
 
-        volatile float getLeftWheelRPM() {return servos.wheel_left->rpm;}
+        float getLeftWheelRPM() {return servos.wheel_left->rpm;}
+
+        float getRightWheelAngle() { return servos.wheel_right->normalized_angle; }
+
+         float getLeftWheelAngle() { return servos.wheel_left->normalized_angle;};
     };
 }
 #endif //BIPEDALV1_ACTUATORMANAGER_H

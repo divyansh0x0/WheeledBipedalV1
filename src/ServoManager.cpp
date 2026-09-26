@@ -79,10 +79,11 @@ namespace Biped {
 
         this->l_wheel_pi_controller.initialize(&l_wheel_pid_config, nullptr);
         this->r_wheel_pi_controller.initialize(&r_wheel_pid_config, nullptr);
+        phased_anti_lock_pwm_enable::set(F411::LOW);
     }
 
-    void ServoManager::enableWheels() {
-        phased_anti_lock_pwm_enable::set(F411::HIGH);
+    void ServoManager::enableWheels(bool enable) {
+        phased_anti_lock_pwm_enable::set(enable ? F411::HIGH : F411::LOW);
     }
 
     void ServoManager::rotateHip(const float speed_left, const float speed_right) {

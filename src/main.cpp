@@ -17,6 +17,8 @@ static Biped::ServoManager *servo_manager = nullptr;;
 static volatile unsigned int control_loop_rate_hz = 0;
 static volatile float right_wheel_rpm = 0;
 static volatile float left_wheel_rpm= 0;
+static volatile float left_wheel_angle= 0;
+static volatile float right_wheel_angle= 0;
 [[noreturn]] int main() {
     using namespace Biped;
     using namespace F411;
@@ -47,7 +49,7 @@ static volatile float left_wheel_rpm= 0;
     mux = Context::getEncoderI2CMux();
     servo_manager = Context::getServoManager();
 
-    servo_manager->enableWheels();
+    servo_manager->enableWheels(false);
     constexpr float rpm = 20;
     servo_manager->setLeftWheelRPM(0);
     servo_manager->setLeftWheelRPM(0);
@@ -76,5 +78,7 @@ static volatile float left_wheel_rpm= 0;
         }
         right_wheel_rpm = servo_manager->getRightWheelRPM();
         left_wheel_rpm = servo_manager->getLeftWheelRPM();
+        left_wheel_angle = servo_manager->getLeftWheelAngle();
+        right_wheel_angle = servo_manager->getRightWheelAngle();
     }
 }

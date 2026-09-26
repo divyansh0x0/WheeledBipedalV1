@@ -122,7 +122,6 @@ namespace Biped::Context {
         // }
         if (mpu_ready) {
             mpu6050.beginRead();
-            servo_manager.enableWheels();
             mpu_ready = false;
         }
         if (current_time - last_balance_loop_time_us >= balance_loop_dt_us) {
@@ -132,11 +131,11 @@ namespace Biped::Context {
             last_hip_update_time_us = current_time;
             direction *= -1;
         }
-        if (current_time - last_as5600_update_time_us >= 1000'000 / 80) {
+        if (current_time - last_as5600_update_time_us >= 1000'000 / 2000) {
             last_as5600_update_time_us = current_time;
             as5600mux.update();
         }
-        if (current_time - last_servo_velocity_update_time_us >= 1000'000 / 250) {
+        if (current_time - last_servo_velocity_update_time_us >= 1000'000 / 500) {
             last_servo_velocity_update_time_us = current_time;
             servo_manager.update();
         }
