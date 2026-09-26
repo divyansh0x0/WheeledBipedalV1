@@ -40,25 +40,24 @@ namespace Biped {
         PID::PIDController l_wheel_pi_controller{};
         PID::PIDController r_wheel_pi_controller{};
 
-        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2> m_right_wheel_pwm =
-                Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel2>();
-        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel3> m_left_wheel_pwm =
-                Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel3>();
-        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel1> m_thigh_left_pwm =
-                       Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel1>();
-        Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel4> m_thigh_right_pwm=
-                Biped::PWM::PWM<Biped::PWM::Timer::TIMER5, Biped::PWM::TimerChannel::Channel4>();
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2> m_right_wheel_pwm =
+                F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2>();
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3> m_left_wheel_pwm =
+                F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3>();
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel1> m_thigh_left_pwm =
+                F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel1>();
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel4> m_thigh_right_pwm =
+                F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel4>();
 
-        using phased_anti_lock_pwm_enable = Biped::Pins::A7;
-        using upper_left_dir_pin = Biped::Pins::A5;
-        using upper_right_dir_pin = Biped::Pins::A6;
+        using phased_anti_lock_pwm_enable = F411::Pins::A7;
+        using upper_left_dir_pin = F411::Pins::A5;
+        using upper_right_dir_pin = F411::Pins::A6;
 
 
-
-        using m_pin_left_wheel_dir = Biped::Pins::A1;
-        using m_pin_right_wheel_dir = Biped::Pins::A2;
-        using m_pin_left_thigh_pwm = Biped::Pins::A0;
-        using m_pin_right_thigh_pwm = Biped::Pins::A3;
+        using m_pin_left_wheel_dir = F411::Pins::A1;
+        using m_pin_right_wheel_dir = F411::Pins::A2;
+        using m_pin_left_thigh_pwm = F411::Pins::A0;
+        using m_pin_right_thigh_pwm = F411::Pins::A3;
 
         struct ServoStates {
             MagneticEncoder::Encoder* wheel_left{};

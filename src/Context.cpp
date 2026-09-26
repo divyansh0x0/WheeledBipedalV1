@@ -21,8 +21,8 @@ namespace Biped::Context {
     static INA219Manager ina219_manager{};
     static BatteryManager<10.6f, 12.6f, 98.0f, 31.8f> battery;
     static ServoManager servo_manager{};
-    static MPU6050::MPU6050<I2C2, MPU6050::GyroScale::_250,
-        MPU6050::AccelScale::g2> mpu6050({
+    static F411::MPU6050::MPU6050<F411::I2C2, F411::MPU6050::GyroScale::_250,
+        F411::MPU6050::AccelScale::g2> mpu6050({
         .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791f, .ax = -0.007324f, .ay = -0.01074f
     });
     static MagneticEncoder::EncoderI2CMux as5600mux{};
@@ -94,25 +94,25 @@ namespace Biped::Context {
         ina219_manager.initialize();
         battery.initialize();
 
-        Biped::Pins::B4::enableInputMode();
+        F411::Pins::B4::enableInputMode();
 
-        Biped::InterruptManager::attachEXTIInterrupt(Biped::InterruptManager::EXTILine::Line4, mpu_irq,
-                                                     Biped::InterruptManager::EXTISource::GPIOB,
-                                                     Biped::InterruptManager::EXTITrigger::RISING);
+        F411::InterruptManager::attachEXTIInterrupt(F411::InterruptManager::EXTILine::Line4, mpu_irq,
+                                                    F411::InterruptManager::EXTISource::GPIOB,
+                                                    F411::InterruptManager::EXTITrigger::RISING);
         mpu6050.initialize(true);
         as5600mux.initialize();
         servo_manager.initialize(100.0f / 2, 173.0f / 2, as5600mux.getWheelLeft(), as5600mux.getWheelRight(),
                                  as5600mux.getHipLeft(), as5600mux.getHipRight());
         mpu6050.beginRead();
 
-        last_balance_loop_time_us = Biped::Clock::micros();
+        last_balance_loop_time_us = F411::Clock::micros();
 
         // buzzer.playTone(Buzzer::Tones::BEEP_BEEP);
-        Biped::Clock::delayMillis(200);
+        F411::Clock::delayMillis(200);
     }
 
     void update() {
-        const unsigned int current_time = Biped::Clock::micros();
+        const unsigned int current_time = F411::Clock::micros();
         // if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
         //     buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
         //     last_buzzer_update_time_us = current_time;

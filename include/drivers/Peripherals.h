@@ -8,7 +8,7 @@
 #include "drivers/MemoryMap.h"
 
 
-namespace Biped {
+namespace F411 {
     template<typename Peripheral, typename Pin>
     struct PeripheralTraits;
 

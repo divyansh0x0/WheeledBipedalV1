@@ -19,6 +19,7 @@ static volatile float right_wheel_rpm = 0;
 static volatile float left_wheel_rpm= 0;
 [[noreturn]] int main() {
     using namespace Biped;
+    using namespace F411;
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C1);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C2);
     MemoryMap::RCC1->enablePeripheral(MemoryMap::APB1Peripheral::I2C3);

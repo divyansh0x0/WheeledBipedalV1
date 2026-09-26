@@ -28,8 +28,8 @@ namespace Biped {
         void update();
 
     private:
-        Biped::PWM::PWM<Biped::PWM::Timer::TIMER3, Biped::PWM::TimerChannel::Channel3> m_pwm;
-        
+        F411::PWM::PWM<F411::PWM::Timer::TIMER3, F411::PWM::TimerChannel::Channel3> m_pwm;
+
         uint64_t m_last_update_time = 0;
         unsigned int m_duration = 0;
         float m_duty_cycle = 0.5f;

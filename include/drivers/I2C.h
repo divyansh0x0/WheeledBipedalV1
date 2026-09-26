@@ -9,7 +9,7 @@
 #include "GPIO.h"
 #include "Interrupt.h"
 
-namespace Biped {
+namespace F411 {
     using I2CWriteCallback = void(*)(void* ctx);
     using I2CReadCallback = void(*)(void* ctx);
 

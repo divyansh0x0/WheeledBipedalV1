@@ -9,7 +9,7 @@
 #include "I2C.h"
 #include "cmath"
 
-namespace Biped::MPU6050 {
+namespace F411::MPU6050 {
     template<typename T>
     concept I2CType = std::same_as<T, I2C1> ||
                       std::same_as<T, I2C2> ||

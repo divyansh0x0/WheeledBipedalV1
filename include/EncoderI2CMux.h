@@ -4,15 +4,12 @@
 
 #ifndef BIPEDALV1_AS5600_H
 #define BIPEDALV1_AS5600_H
-#include <concepts>
 #include <optional>
-
-#include "drivers/MemoryMap.h"
 #include "drivers/I2C.h"
 #include "drivers/Clock.h"
 
 namespace Biped::MagneticEncoder {
-    using i2c = I2C1;
+    using i2c = F411::I2C1;
     /**
      * Magnet status reported by the AS5600 STATUS register (0x0B).
      *   MD (bit 5) – magnet detected

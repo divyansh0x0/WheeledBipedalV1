@@ -21,7 +21,7 @@ static void encoder_read_callback(void *ctx) {
             / max_angle_binary;
 
 
-    const unsigned int current_time = Biped::Clock::micros();
+    const unsigned int current_time = F411::Clock::micros();
     const float angle_change = normalize_angle(new_angle - state->raw_angle);
     const unsigned int dt = current_time - state->last_read_time_us;
     const float rpm = (angle_change * 1e6f/60.0f)/static_cast<float>(dt);
@@ -78,7 +78,7 @@ namespace Biped::MagneticEncoder {
         // AS5600 read
         uint8_t temp = 0;
         if (!i2c::readRegister(AS5600_ADDR, static_cast<uint8_t>(AS5600Registers::STATUS), &temp, 1)) {
-            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             this->status = MagnetStatus::ReadError;
             return;
         }
@@ -100,14 +100,14 @@ namespace Biped::MagneticEncoder {
     void Encoder::updateAngle() {
         if (type == EncoderType::MT6701) {
             if (!i2c::readRegister(MT6701_ADDR, static_cast<uint8_t>(MT6701Registers::ANGLE_MSB), this->buffer, 2)) {
-                i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+                i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
                 this->status = MagnetStatus::ReadError;
                 return;
             }
         } else {
             //AS5600 read
             if (!i2c::readRegister(AS5600_ADDR, static_cast<uint8_t>(AS5600Registers::RAW_ANGLE_H), this->buffer, 2)) {
-                i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+                i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
                 this->status = MagnetStatus::ReadError;
                 return;
             }
@@ -120,7 +120,7 @@ namespace Biped::MagneticEncoder {
             / max_angle_bit);
 
 
-        const unsigned int current_time = Clock::micros();
+        const unsigned int current_time = F411::Clock::micros();
         if (this->last_read_time_us == 0) {
             this->last_read_time_us = current_time;
             this->raw_angle = new_angle;
@@ -138,7 +138,7 @@ namespace Biped::MagneticEncoder {
         bool success = i2c::writeRegister(PCA9548A_ADDR, static_cast<uint8_t>(0b1 << this->active_channel), nullptr, 0,
                                           false);
         if (!success) {
-            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
         }
         return success;
     }
@@ -152,7 +152,7 @@ namespace Biped::MagneticEncoder {
         this->active_channel = this->as5600_states[this->active_as5600_index].mux_index;
         auto channel_mask = static_cast<uint8_t>(0b1 << this->active_channel);
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
-            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
         }
         return this->active_channel != 0;
     }
@@ -173,7 +173,7 @@ namespace Biped::MagneticEncoder {
 
             // Failed to update (NACK). Mark error, recover bus, and try the next channel.
             current_encoder->status = MagnetStatus::ReadError;
-            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             if (!this->changeChannelDMA()) {
                 return; // Reached channel 0
             }
@@ -201,7 +201,7 @@ namespace Biped::MagneticEncoder {
         unsigned int channel_mask = 0b1 << this->active_channel;
         Encoder *state = &this->as5600_states[this->active_as5600_index];
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
-            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             state->status = MagnetStatus::ReadError;
             return;
         }
@@ -212,7 +212,7 @@ namespace Biped::MagneticEncoder {
         const unsigned int channel_mask = 0b1 << this->active_channel;
         Encoder *state = &this->as5600_states[this->active_as5600_index];
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
-            i2c::recoverBus<Pins::B6, Pins::B7, Peripherals::SCL1, Peripherals::SDA1>();
+            i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             state->status = MagnetStatus::ReadError;
             return;
         }

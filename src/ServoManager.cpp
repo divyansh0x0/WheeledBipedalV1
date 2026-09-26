@@ -21,15 +21,15 @@ namespace Biped {
     void ServoManager::initialize(float wheel_radius, float hip_joint_radius, MagneticEncoder::Encoder *wheel_left,
                                   MagneticEncoder::Encoder *wheel_right, MagneticEncoder::Encoder *hip_left,
                                   MagneticEncoder::Encoder *hip_right) {
-        Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::AHB1Peripheral::GPIOA);
-        Biped::MemoryMap::RCC1->enablePeripheral(Biped::MemoryMap::APB1Peripheral::TIMER5);
+        F411::MemoryMap::RCC1->enablePeripheral(F411::MemoryMap::AHB1Peripheral::GPIOA);
+        F411::MemoryMap::RCC1->enablePeripheral(F411::MemoryMap::APB1Peripheral::TIMER5);
 
         phased_anti_lock_pwm_enable::enableOutputMode();
-        phased_anti_lock_pwm_enable::set(Biped::GPIOStatus::LOW);
+        phased_anti_lock_pwm_enable::set(F411::GPIOStatus::LOW);
         upper_left_dir_pin::enableOutputMode();
-        upper_left_dir_pin::set(Biped::GPIOStatus::LOW);
+        upper_left_dir_pin::set(F411::GPIOStatus::LOW);
         upper_right_dir_pin::enableOutputMode();
-        upper_right_dir_pin::set(Biped::GPIOStatus::LOW);
+        upper_right_dir_pin::set(F411::GPIOStatus::LOW);
 
         // Set frequency FIRST so ARR is valid before channel outputs are enabled
         m_left_wheel_pwm.setFrequency(32000);
@@ -52,10 +52,10 @@ namespace Biped {
         m_thigh_right_pwm.enable();
 
         // Route the fully configured timer signals to the GPIO pins
-        m_pin_left_wheel_dir::enableAlternateFunction<Biped::Peripherals::TIMER5>();
-        m_pin_right_wheel_dir::enableAlternateFunction<Biped::Peripherals::TIMER5>();
-        m_pin_left_thigh_pwm::enableAlternateFunction<Biped::Peripherals::TIMER5>();
-        m_pin_right_thigh_pwm::enableAlternateFunction<Biped::Peripherals::TIMER5>();
+        m_pin_left_wheel_dir::enableAlternateFunction<F411::Peripherals::TIMER5>();
+        m_pin_right_wheel_dir::enableAlternateFunction<F411::Peripherals::TIMER5>();
+        m_pin_left_thigh_pwm::enableAlternateFunction<F411::Peripherals::TIMER5>();
+        m_pin_right_thigh_pwm::enableAlternateFunction<F411::Peripherals::TIMER5>();
 
         this->servos.hip_left = hip_left;
         this->servos.hip_right = hip_right;
@@ -82,19 +82,19 @@ namespace Biped {
     }
 
     void ServoManager::enableWheels() {
-        phased_anti_lock_pwm_enable::set(Biped::HIGH);
+        phased_anti_lock_pwm_enable::set(F411::HIGH);
     }
 
     void ServoManager::rotateHip(const float speed_left, const float speed_right) {
         if (speed_left < 0) {
-            upper_left_dir_pin::set(Biped::LOW);
+            upper_left_dir_pin::set(F411::LOW);
         } else {
-            upper_left_dir_pin::set(Biped::HIGH);
+            upper_left_dir_pin::set(F411::HIGH);
         }
         if (speed_right < 0) {
-            upper_right_dir_pin::set(Biped::LOW);
+            upper_right_dir_pin::set(F411::LOW);
         } else {
-            upper_right_dir_pin::set(Biped::HIGH);
+            upper_right_dir_pin::set(F411::HIGH);
         }
 
         m_thigh_left_pwm.setDutyCycle(speed_left < 0 ? -speed_left : speed_left);

@@ -20,7 +20,7 @@ namespace Biped::PID {
     float PIDController::getValue(float control_value, float control_value_rate_change) const {
         PIDVars* pid = m_pid_config;
 
-        const unsigned int curr_time = Clock::micros();
+        const unsigned int curr_time = F411::Clock::micros();
         const unsigned int dt = curr_time - pid->last_time_us;
         const float dt_sec = static_cast<float>(dt) * 1e-6f; // Convert microseconds to seconds
         

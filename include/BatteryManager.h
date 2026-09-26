@@ -9,10 +9,11 @@
 namespace Biped {
     template<float min_battery_voltage, float max_battery_voltage, float Resistor1, float Resistor2>
     class BatteryManager {
-        Biped::ADC::ADC<Biped::Pins::A4> adc = Biped::ADC::ADC<Biped::Pins::A4>();
+        F411::ADC::ADC<F411::Pins::A4> adc = F411::ADC::ADC<F411::Pins::A4>();
+
     public:
         void initialize() {
-            adc.enable(Biped::ADC::Resolution::VeryHigh, Biped::ADC::SampleTime::Cycles480);
+            adc.enable(F411::ADC::Resolution::VeryHigh, F411::ADC::SampleTime::Cycles480);
             adc.enableDMARead();
 
         }

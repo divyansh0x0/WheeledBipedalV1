@@ -7,7 +7,7 @@
 #include "GPIO.h"
 #include "MemoryMap.h"
 
-namespace Biped::ADC {
+namespace F411::ADC {
     enum class Resolution {
         VeryHigh = 0b00,
         High = 0b01,
