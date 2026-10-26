@@ -75,6 +75,6 @@ static volatile float right_wheel_angle= 0;
         left_wheel_rpm = servo_manager->getLeftWheelRPM();
         left_wheel_angle = servo_manager->getLeftWheelAngle();
         right_wheel_angle = servo_manager->getRightWheelAngle();
-        servo_manager->setPWM(0.2f,0.0f);
+        servo_manager->setPWM(0.2f,0.2f);
     }
 }

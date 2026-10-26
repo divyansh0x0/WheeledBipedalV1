@@ -27,7 +27,7 @@ static void encoder_read_callback(void *ctx) {
     const float instantaneous_rpm = (angle_change * 1e6f / 6.0f) / static_cast<float>(dt);
 
     // EMA low pass filter on RPM: alpha = 0.3 → heavier smoothing, 0.8 → lighter smoothing
-    constexpr float alpha = 0.3f;
+    constexpr float alpha = 0.2f;
     state->rpm = alpha * instantaneous_rpm + (1.0f - alpha) * state->rpm;
 
     state->raw_angle = new_angle;
