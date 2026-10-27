@@ -21,14 +21,18 @@ static void encoder_read_callback(void *ctx) {
     const float new_angle = static_cast<float>(angle_raw) * 360.0f / max_counts;
 
     const unsigned int current_time = F411::Clock::micros();
-    const float angle_change = normalize_angle(new_angle - state->raw_angle);
-    const unsigned int dt = current_time - state->last_read_time_us;
-    // RPM = (Δθ_degrees / 360) × (60 × 1e6 / Δt_us) = Δθ × 1e6 / (6 × Δt)
-    const float instantaneous_rpm = (angle_change * 1e6f / 6.0f) / static_cast<float>(dt);
+    if (state->last_read_time_us != 0) {
+        const float angle_change = normalize_angle(new_angle - state->raw_angle);
+        const unsigned int dt = current_time - state->last_read_time_us;
+        if (dt > 0) {
+            // RPM = (Δθ_degrees / 360) × (60 × 1e6 / Δt_us) = Δθ × 1e6 / (6 × Δt)
+            const float instantaneous_rpm = (angle_change * 1e6f / 6.0f) / static_cast<float>(dt);
 
-    // EMA low pass filter on RPM: alpha = 0.3 → heavier smoothing, 0.8 → lighter smoothing
-    constexpr float alpha = 0.2f;
-    state->rpm = alpha * instantaneous_rpm + (1.0f - alpha) * state->rpm;
+            // EMA low pass filter on RPM: alpha = 0.3 → heavier smoothing, 0.8 → lighter smoothing
+            constexpr float alpha = 0.2f;
+            state->rpm = alpha * instantaneous_rpm + (1.0f - alpha) * state->rpm;
+        }
+    }
 
     state->raw_angle = new_angle;
     state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value_or(0.0f));
@@ -195,6 +199,21 @@ namespace Biped::MagneticEncoder {
     bool EncoderI2CMux::initialize() {
         i2c::enable(true);
         i2c::setCallbacks(encoder_read_callback, nullptr, this);
+
+        // Scan all 8 PCA9548A channels to detect connected devices
+        for (uint8_t ch = 0; ch < 8; ch++) {
+            const uint8_t mask = static_cast<uint8_t>(1 << ch);
+            if (!i2c::writeRegister(PCA9548A_ADDR, mask, nullptr, 0, false)) {
+                continue;
+            }
+            for (uint8_t addr = 0x03; addr < 0x78; addr++) {
+                if (addr == PCA9548A_ADDR) continue;
+                if (i2c::probe(addr)) {
+                    this->detected_channel_addresses[ch] = addr;
+                    break;
+                }
+            }
+        }
 
         // Read all encoders multiple times to let the readings settle
         for (unsigned int i = 0; i < 20; i++) {

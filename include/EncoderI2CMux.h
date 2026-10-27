@@ -72,7 +72,7 @@ namespace Biped::MagneticEncoder {
             },
             {
                 .type = Encoder::EncoderType::MT6701,
-                .mux_index = 3, //wheel right
+                .mux_index = 5, //wheel right
             }
         };
         uint8_t active_as5600_index = 0;
@@ -87,6 +87,8 @@ namespace Biped::MagneticEncoder {
         unsigned int current_mux_index = 0;
 
     public:
+        uint8_t detected_channel_addresses[8] = {};
+
         EncoderI2CMux() = default;
 
         bool initialize();

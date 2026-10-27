@@ -30,6 +30,7 @@ namespace Biped::Context {
     static unsigned int balance_loop_dt_us = 5 * 1'000; // 200hz balancer control loop
     static unsigned int last_balance_loop_time_us = 0;
     static unsigned int last_as5600_update_time_us = 0;
+    static unsigned int last_buzzer_update_time_us = 0;
     static unsigned int last_servo_velocity_update_time_us = 0;
     static unsigned int last_hip_update_time_us = 0;
 
@@ -113,13 +114,13 @@ namespace Biped::Context {
 
     void update() {
         const unsigned int current_time = F411::Clock::micros();
-        // if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
-        //     buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
-        //     last_buzzer_update_time_us = current_time;
-        // }
-        // else if (battery.getBatteryPercentage() > 10){
-        //     buzzer.stop();
-        // }
+        if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
+            buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
+            last_buzzer_update_time_us = current_time;
+        }
+        else if (battery.getBatteryPercentage() > 10){
+            buzzer.stop();
+        }
         if (mpu_ready) {
             mpu6050.beginRead();
             mpu_ready = false;

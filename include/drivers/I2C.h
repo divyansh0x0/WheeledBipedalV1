@@ -47,7 +47,7 @@ namespace F411 {
                     // Reset the peripheral on error to avoid bus lockup
                     REG->CR1 |= (1 << 15); // Set SWRST
                     REG->CR1 &= ~(1 << 15); // Clear SWRST
-                    enable(); // Re-initialize I2C
+                    enable(true); // Re-initialize I2C
 
                     return false;
                 }
@@ -56,7 +56,7 @@ namespace F411 {
                     // Reset the peripheral on timeout to avoid bus lockup
                     REG->CR1 |= (1 << 15); // Set SWRST
                     REG->CR1 &= ~(1 << 15); // Clear SWRST
-                    enable(); // Re-initialize I2C
+                    enable(true); // Re-initialize I2C
 
                     return false; // Software timeout
                 }
@@ -71,7 +71,7 @@ namespace F411 {
         }
 
     public:
-        static void enable(bool enableDMA = false) {
+        static void enable(bool enableDMA = true) {
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             REG->CR1 &= ~1u; // set EN to false
             if (enableDMA) {
@@ -151,7 +151,7 @@ namespace F411 {
             SdaPin::template enableAlternateFunction<SdaPeriph>();
 
             // 6. Re-enable I2C
-            enable();
+            enable(true);
         }
 
         static bool isBusBusy() {
@@ -166,17 +166,30 @@ namespace F411 {
         static bool waitFreeBus() {
             const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
             const uint32_t start = Clock::micros();
-            while (REG->SR2 & (1 << 1)) {
+            // Wait for both the BUSY flag in SR2 and any pending STOP bit in CR1 to clear
+            while ((REG->SR2 & (1 << 1)) || (REG->CR1 & (1 << 9))) {
                 // A normal STOP bit takes ~2.5us at 400kHz.
                 // If it's busy for > 500us, the bus is locked up (slave holding SDA low).
                 if (Clock::micros() - start > 500) {
                     REG->CR1 |= (1 << 15);
                     REG->CR1 &= ~(1 << 15);
-                    enable();
+                    enable(true);
                     return false;
                 }
             }
             return true;
+        }
+
+        static bool probe(uint8_t i2c_addr) {
+            const volatile auto REG = reinterpret_cast<volatile MemoryMap::I2C *>(addr);
+            if (!waitFreeBus()) return false;
+            REG->CR1 |= 1 << 8;
+            if (!waitEvent(I2CFlags::START_BIT_GENERATED)) return false;
+            REG->DR = i2c_addr << 1;
+            bool ack = waitEvent(I2CFlags::ADDRESS_SENT);
+            clearAddress();
+            REG->CR1 |= 1 << 9;
+            return ack;
         }
 
         static bool writeRegister(uint8_t i2c_addr, uint8_t reg_addr, const uint8_t *data, const uint32_t length,
