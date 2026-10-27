@@ -27,11 +27,27 @@ namespace Biped::Context {
     });
     static MagneticEncoder::EncoderI2CMux as5600mux{};
 
-    static unsigned int balance_loop_dt_us = 5 * 1'000; // 200hz balancer control loop
+    // 200 Hz balancer control loop
+    static constexpr unsigned int BALANCE_LOOP_RATE_HZ = 200;
+    static constexpr unsigned int BALANCE_LOOP_PERIOD_US = 1'000'000 / BALANCE_LOOP_RATE_HZ;
+
+    // 500 Hz encoder angle sampling rate
+    static constexpr unsigned int ENCODER_SAMPLE_RATE_HZ = 500;
+    static constexpr unsigned int ENCODER_SAMPLE_PERIOD_US = 1'000'000 / ENCODER_SAMPLE_RATE_HZ;
+
+    // 100 Hz encoder velocity differentiation rate & wheel motor control loop
+    static constexpr unsigned int ENCODER_DIFFERENTIATE_RATE_HZ = 100;
+    static constexpr unsigned int ENCODER_DIFFERENTIATE_PERIOD_US = 1'000'000 / ENCODER_DIFFERENTIATE_RATE_HZ;
+
+    // Interval constants
+    static constexpr unsigned int LOW_BATTERY_ALERT_INTERVAL_US = 2'000'000;
+    static constexpr float LOW_BATTERY_THRESHOLD_PERCENT = 10.0f;
+    static constexpr unsigned int HIP_DIRECTION_TOGGLE_INTERVAL_US = 500'000;
+
     static unsigned int last_balance_loop_time_us = 0;
-    static unsigned int last_as5600_update_time_us = 0;
+    static unsigned int last_as5600_sample_time_us = 0;
     static unsigned int last_buzzer_update_time_us = 0;
-    static unsigned int last_servo_velocity_update_time_us = 0;
+    static unsigned int last_encoder_differentiate_time_us = 0;
     static unsigned int last_hip_update_time_us = 0;
 
     static float direction = 1.0f;
@@ -114,32 +130,38 @@ namespace Biped::Context {
 
     void update() {
         const unsigned int current_time = F411::Clock::micros();
-        if (current_time - last_buzzer_update_time_us > 2 * 1'000'000 && battery.getBatteryPercentage() < 10) {
+        if (current_time - last_buzzer_update_time_us > LOW_BATTERY_ALERT_INTERVAL_US && battery.getBatteryPercentage() < LOW_BATTERY_THRESHOLD_PERCENT) {
             buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
             last_buzzer_update_time_us = current_time;
         }
-        else if (battery.getBatteryPercentage() > 10){
+        else if (battery.getBatteryPercentage() > LOW_BATTERY_THRESHOLD_PERCENT){
             buzzer.stop();
         }
         if (mpu_ready) {
             mpu6050.beginRead();
             mpu_ready = false;
         }
-        if (current_time - last_balance_loop_time_us >= balance_loop_dt_us) {
+        if (current_time - last_balance_loop_time_us >= BALANCE_LOOP_PERIOD_US) {
             last_balance_loop_time_us = current_time;
         }
-        if (current_time - last_hip_update_time_us >= 500'000) {
+        if (current_time - last_hip_update_time_us >= HIP_DIRECTION_TOGGLE_INTERVAL_US) {
             last_hip_update_time_us = current_time;
             direction *= -1;
         }
-        if (current_time - last_as5600_update_time_us >= 1000'000 / 50) {
-            last_as5600_update_time_us = current_time;
+
+        // Sample encoder raw angle at 500 Hz
+        if (current_time - last_as5600_sample_time_us >= ENCODER_SAMPLE_PERIOD_US) {
+            last_as5600_sample_time_us = current_time;
             as5600mux.update();
         }
-        // if (current_time - last_servo_velocity_update_time_us >= 1000'000 / 500) {
-        //     last_servo_velocity_update_time_us = current_time;
-        //     // servo_manager.update();
-        // }
+
+        // Differentiate encoder angle to calculate velocity (RPM) at 100 Hz, and update wheel PI control loop
+        if (current_time - last_encoder_differentiate_time_us >= ENCODER_DIFFERENTIATE_PERIOD_US) {
+            last_encoder_differentiate_time_us = current_time;
+            as5600mux.differentiate();
+            servo_manager.update();
+        }
+
         ina219_manager.update();
         mpu6050.update();
         buzzer.update();

@@ -40,9 +40,9 @@ namespace Biped {
         PID::PIDController l_wheel_pi_controller{};
         PID::PIDController r_wheel_pi_controller{};
 
-        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2> m_right_wheel_pwm =
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2> m_left_wheel_pwm =
                 F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2>();
-        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3> m_left_wheel_pwm =
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3> m_right_wheel_pwm =
                 F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3>();
         F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel1> m_thigh_left_pwm =
                 F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel1>();

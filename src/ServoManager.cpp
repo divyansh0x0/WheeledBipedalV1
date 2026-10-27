@@ -13,9 +13,8 @@ namespace Biped {
         const LockedAntiPhaseSpeed left_pwm{left_wheel};
         const LockedAntiPhaseSpeed right_pwm{right_wheel};
 
-        const auto right_wheel_pwm = right_pwm.toDuty();
-        m_left_wheel_pwm.setDutyCycle(left_pwm.toInvertedDuty());
-        m_right_wheel_pwm.setDutyCycle(right_wheel_pwm);
+        m_left_wheel_pwm.setDutyCycle(left_pwm.toDuty());
+        m_right_wheel_pwm.setDutyCycle(right_pwm.toDuty());
     }
 
     void ServoManager::initialize(float wheel_radius, float hip_joint_radius, MagneticEncoder::Encoder *wheel_left,
@@ -61,20 +60,18 @@ namespace Biped {
         this->servos.hip_right = hip_right;
         this->servos.wheel_left = wheel_left;
         this->servos.wheel_right = wheel_right;
-        this->servos.wheel_right = wheel_right;
 
-        constexpr float Kp = 0.012
-        ;
-        constexpr float Ki = 0.008;
+        constexpr float Kp = 0.004;
+        constexpr float Ki = 0.00;
 
         l_wheel_pid_config.kp = Kp;
         l_wheel_pid_config.ki = Ki;
-        l_wheel_pid_config.integral_max = 1.0f/Ki;
-        l_wheel_pid_config.output_max = 1.0f;
+        l_wheel_pid_config.integral_max = 1.0f;
+        l_wheel_pid_config.output_max = 0.8f;
 
         r_wheel_pid_config.kp = Kp;
         r_wheel_pid_config.ki = Ki;
-        r_wheel_pid_config.integral_max = 1.0f/Ki;
+        r_wheel_pid_config.integral_max = 0.8f;
         r_wheel_pid_config.output_max = 1.0f;
 
         this->l_wheel_pi_controller.initialize(&l_wheel_pid_config, nullptr);

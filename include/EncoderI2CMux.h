@@ -25,6 +25,45 @@ namespace Biped::MagneticEncoder {
     };
 
     static constexpr size_t VELOCITY_HISTORY_SIZE = 16;
+    static constexpr float DEFAULT_RPM_EMA_ALPHA = 0.25f;
+
+    class LowPassFilterEMA {
+        float m_alpha = 1.0f;
+        float m_filtered_value = 0.0f;
+        bool m_is_initialized = false;
+
+    public:
+        constexpr LowPassFilterEMA() = default;
+        constexpr explicit LowPassFilterEMA(float alpha) : m_alpha(alpha) {}
+
+        void setAlpha(float alpha) {
+            m_alpha = alpha;
+        }
+
+        [[nodiscard]] float getAlpha() const {
+            return m_alpha;
+        }
+
+        void reset(float initial_value = 0.0f) {
+            m_filtered_value = initial_value;
+            m_is_initialized = true;
+        }
+
+        float update(float input) {
+            if (!m_is_initialized) {
+                m_filtered_value = input;
+                m_is_initialized = true;
+                return m_filtered_value;
+            }
+            // Standard Exponential Moving Average formula: y[k] = alpha * x[k] + (1 - alpha) * y[k-1]
+            m_filtered_value = (m_alpha * input) + ((1.0f - m_alpha) * m_filtered_value);
+            return m_filtered_value;
+        }
+
+        [[nodiscard]] float getValue() const {
+            return m_filtered_value;
+        }
+    };
 
     struct Encoder {
         enum class EncoderType : uint8_t {
@@ -36,13 +75,20 @@ namespace Biped::MagneticEncoder {
         std::optional<float> reference_angle{};
         float raw_angle{};
         float normalized_angle{};
+        float raw_rpm{};
         float rpm{};
+        float last_differentiate_angle{};
         unsigned int last_read_time_us = 0;
+        unsigned int last_differentiate_time_us = 0;
+
+        LowPassFilterEMA rpm_filter{DEFAULT_RPM_EMA_ALPHA};
 
         std::optional<MagnetStatus> status{MagnetStatus::NotDetected};
         uint8_t buffer[2] = {};
 
         void updateAngle();
+
+        void differentiate();
 
         void readMagnetStatus();
     };
@@ -106,6 +152,8 @@ namespace Biped::MagneticEncoder {
         void updateDataDMA();
 
         void update();
+
+        void differentiate();
 
         Encoder *getWheelLeft() { return &encoder_states[2]; };
         Encoder *getWheelRight() { return &encoder_states[3]; };

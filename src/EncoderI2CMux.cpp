@@ -14,29 +14,23 @@ static void encoder_read_callback(void *ctx) {
     Biped::MagneticEncoder::Encoder *state = mux->getCurrentEncoder();
     const uint16_t raw = static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1]);
     const bool is_as5600 = state->type == Biped::MagneticEncoder::Encoder::EncoderType::AS5600;
-    // AS5600: 12-bit angle in bits [11:0], upper 4 bits are undefined → mask
-    // MT6701: 14-bit angle in bits [15:2], lower 2 bits are status  → shift
-    const uint16_t angle_raw = is_as5600 ? (raw & 0x0FFF) : (raw >> 2);
-    const float max_counts = is_as5600 ? 4096.0f : 16384.0f;
-    const float new_angle = static_cast<float>(angle_raw) * 360.0f / max_counts;
+
+    // Angle resolution constants
+    constexpr uint16_t AS5600_RAW_ANGLE_MASK = 0x0FFF;   // 12-bit angle in bits [11:0]
+    constexpr uint8_t MT6701_RAW_ANGLE_SHIFT = 2;        // 14-bit angle in bits [15:2]
+    constexpr float AS5600_RESOLUTION_COUNTS = 4096.0f;  // 12-bit ADC range
+    constexpr float MT6701_RESOLUTION_COUNTS = 16384.0f; // 14-bit ADC range
+    constexpr float FULL_ROTATION_DEGREES = 360.0f;
+
+    const uint16_t angle_raw = is_as5600 ? (raw & AS5600_RAW_ANGLE_MASK) : (raw >> MT6701_RAW_ANGLE_SHIFT);
+    const float max_counts = is_as5600 ? AS5600_RESOLUTION_COUNTS : MT6701_RESOLUTION_COUNTS;
+    const float new_angle = static_cast<float>(angle_raw) * FULL_ROTATION_DEGREES / max_counts;
 
     const unsigned int current_time = F411::Clock::micros();
-    if (state->last_read_time_us != 0) {
-        const float angle_change = normalize_angle(new_angle - state->raw_angle);
-        const unsigned int dt = current_time - state->last_read_time_us;
-        if (dt > 0) {
-            // RPM = (Δθ_degrees / 360) × (60 × 1e6 / Δt_us) = Δθ × 1e6 / (6 × Δt)
-            const float instantaneous_rpm = (angle_change * 1e6f / 6.0f) / static_cast<float>(dt);
-
-            // EMA low pass filter on RPM: alpha = 0.3 → heavier smoothing, 0.8 → lighter smoothing
-            constexpr float alpha = 0.2f;
-            state->rpm = alpha * instantaneous_rpm + (1.0f - alpha) * state->rpm;
-        }
-    }
-
     state->raw_angle = new_angle;
     state->normalized_angle = normalize_angle(state->raw_angle - state->reference_angle.value_or(0.0f));
     state->last_read_time_us = current_time;
+
     if (mux->changeChannelDMA())
         mux->updateDataDMA();
 }
@@ -120,27 +114,55 @@ namespace Biped::MagneticEncoder {
             }
         }
 
+        constexpr uint16_t AS5600_RAW_ANGLE_MASK = 0x0FFF;
+        constexpr uint8_t MT6701_RAW_ANGLE_SHIFT = 2;
+        constexpr float AS5600_RESOLUTION_COUNTS = 4096.0f;
+        constexpr float MT6701_RESOLUTION_COUNTS = 16384.0f;
+        constexpr float FULL_ROTATION_DEGREES = 360.0f;
+
         const uint16_t raw = static_cast<uint16_t>(this->buffer[0] << 8 | this->buffer[1]);
-        // AS5600: 12-bit angle in bits [11:0], upper 4 bits are undefined → mask
-        // MT6701: 14-bit angle in bits [15:2], lower 2 bits are status  → shift
-        const uint16_t angle_raw = (this->type == EncoderType::AS5600) ? (raw & 0x0FFF) : (raw >> 2);
-        const float max_angle_bit = (this->type == EncoderType::AS5600) ? 4096.0f : 16384.0f;
-        const float new_angle = static_cast<float>(angle_raw) * 360.0f / max_angle_bit;
+        const uint16_t angle_raw = (this->type == EncoderType::AS5600) ? (raw & AS5600_RAW_ANGLE_MASK) : (raw >> MT6701_RAW_ANGLE_SHIFT);
+        const float max_angle_bit = (this->type == EncoderType::AS5600) ? AS5600_RESOLUTION_COUNTS : MT6701_RESOLUTION_COUNTS;
+        const float new_angle = static_cast<float>(angle_raw) * FULL_ROTATION_DEGREES / max_angle_bit;
 
         const unsigned int current_time = F411::Clock::micros();
-        if (this->last_read_time_us == 0) {
-            this->last_read_time_us = current_time;
-            this->raw_angle = new_angle;
-            return; // Can't compute RPM on first sample
-        }
-
-        const float angle_change = normalize_angle(new_angle - this->raw_angle);
-        const unsigned int dt = current_time - this->last_read_time_us;
-        this->rpm = (angle_change * 1e6f / 6.0f) / static_cast<float>(dt);
-
         this->raw_angle = new_angle;
         this->normalized_angle = normalize_angle(this->raw_angle - this->reference_angle.value_or(0.0f));
         this->last_read_time_us = current_time;
+    }
+
+    void Encoder::differentiate() {
+        const unsigned int current_time = F411::Clock::micros();
+        if (this->last_differentiate_time_us == 0) {
+            this->last_differentiate_time_us = current_time;
+            this->last_differentiate_angle = this->raw_angle;
+            return;
+        }
+
+        const unsigned int elapsed_time_us = current_time - this->last_differentiate_time_us;
+        if (elapsed_time_us == 0) {
+            return;
+        }
+
+        const float angle_change_degrees = normalize_angle(this->raw_angle - this->last_differentiate_angle);
+        const float elapsed_time_seconds = static_cast<float>(elapsed_time_us) * 1e-6f;
+
+        // RPM conversion formula:
+        // (angle_change_degrees / 360.0f) = revolutions
+        // Dividing by elapsed_time_seconds gives revolutions per second
+        // Multiplying by 60.0f gives revolutions per minute (RPM)
+        constexpr float FULL_ROTATION_DEGREES = 360.0f;
+        constexpr float SECONDS_PER_MINUTE = 60.0f;
+        constexpr float DEGREES_TO_RPM_RATIO = SECONDS_PER_MINUTE / FULL_ROTATION_DEGREES; // 60 / 360 = 1 / 6
+
+        const float instantaneous_rpm = (angle_change_degrees * DEGREES_TO_RPM_RATIO) / elapsed_time_seconds;
+        this->raw_rpm = instantaneous_rpm;
+
+        // Apply dedicated Exponential Moving Average (EMA) low-pass filter to smooth RPM
+        this->rpm = this->rpm_filter.update(instantaneous_rpm);
+
+        this->last_differentiate_angle = this->raw_angle;
+        this->last_differentiate_time_us = current_time;
     }
 
     bool EncoderI2CMux::changeChannel() {
@@ -196,6 +218,12 @@ namespace Biped::MagneticEncoder {
         this->updateDataDMA();
     }
 
+    void EncoderI2CMux::differentiate() {
+        for (unsigned int i = 0; i < this->as5600_count; i++) {
+            this->encoder_states[i].differentiate();
+        }
+    }
+
     bool EncoderI2CMux::initialize() {
         i2c::enable(true);
         i2c::setCallbacks(encoder_read_callback, nullptr, this);
@@ -224,10 +252,16 @@ namespace Biped::MagneticEncoder {
             }
         }
 
-        // Capture each encoder's current position as its zero reference
+        // Capture each encoder's current position as its zero reference and initialize differentiation & filter state
+        const unsigned int init_time = F411::Clock::micros();
         for (unsigned int j = 0; j < this->as5600_count; j++) {
             this->encoder_states[j].reference_angle = this->encoder_states[j].raw_angle;
             this->encoder_states[j].normalized_angle = 0.0f;
+            this->encoder_states[j].last_differentiate_angle = this->encoder_states[j].raw_angle;
+            this->encoder_states[j].last_differentiate_time_us = init_time;
+            this->encoder_states[j].rpm_filter.reset(0.0f);
+            this->encoder_states[j].raw_rpm = 0.0f;
+            this->encoder_states[j].rpm = 0.0f;
         }
 
         return true;
