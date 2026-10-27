@@ -55,7 +55,9 @@ static volatile float left_wheel_error = 0;
     mux->update();
     unsigned int t1 = Clock::millis();
     unsigned int count = 0;
-    const float target_rpm = -30;
+    unsigned int t2 = Clock::millis();
+     float target_rpm = -30;
+    float target_delta = 10;
     while (true) {
         Context::update();
         current[0] = Context::getCurrentHipLeft();
@@ -82,6 +84,15 @@ static volatile float left_wheel_error = 0;
 
         right_wheel_error = right_wheel_rpm - target_rpm;
         left_wheel_error = left_wheel_rpm - target_rpm;
+
+        // if (Clock::millis() - t2 > 1000) {
+        //     if (target_rpm < -150)
+        //         target_delta = 10;
+        //     if (target_rpm >=-20)
+        //         target_delta = -20;
+        //     target_rpm += target_delta;
+        //     t2 = Clock::millis();
+        // }
 
     }
 }

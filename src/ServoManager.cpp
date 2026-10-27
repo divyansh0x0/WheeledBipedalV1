@@ -61,8 +61,8 @@ namespace Biped {
         this->servos.wheel_left = wheel_left;
         this->servos.wheel_right = wheel_right;
 
-        constexpr float Kp = 0.013;//0.023 with surface
-        constexpr float Ki = 0.0010;
+        constexpr float Kp = 0.015;//0.023 with surface
+        constexpr float Ki = 0.02;
 
         l_wheel_pid_config.kp = Kp;
         l_wheel_pid_config.ki = Ki;
