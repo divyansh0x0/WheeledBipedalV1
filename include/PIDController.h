@@ -29,8 +29,9 @@ namespace Biped::PID {
     public:
         PIDController() = default;
         void initialize(PIDVars *pid_config, Limiter *limiter);
+        void reset();
 
-        [[nodiscard]] float getValue(float control_value, float control_value_rate_change) const;
+        [[nodiscard]] float getValue(float control_value, float control_value_rate_change = 0.0f);
     };
 }
 #endif //BIPEDALV1_CONTROLLER_H

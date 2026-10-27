@@ -19,6 +19,8 @@ static volatile float right_wheel_rpm = 0;
 static volatile float left_wheel_rpm= 0;
 static volatile float left_wheel_angle= 0;
 static volatile float right_wheel_angle= 0;
+static volatile float right_wheel_error = 0;
+static volatile float left_wheel_error = 0;
 [[noreturn]] int main() {
     using namespace Biped;
     using namespace F411;
@@ -53,6 +55,7 @@ static volatile float right_wheel_angle= 0;
     mux->update();
     unsigned int t1 = Clock::millis();
     unsigned int count = 0;
+    const float target_rpm = -30;
     while (true) {
         Context::update();
         current[0] = Context::getCurrentHipLeft();
@@ -75,6 +78,10 @@ static volatile float right_wheel_angle= 0;
         left_wheel_rpm = servo_manager->getLeftWheelRPM();
         left_wheel_angle = servo_manager->getLeftWheelAngle();
         right_wheel_angle = servo_manager->getRightWheelAngle();
-        servo_manager->setPWM(30,30);
+        servo_manager->setWheelRPM(target_rpm,target_rpm);
+
+        right_wheel_error = right_wheel_rpm - target_rpm;
+        left_wheel_error = left_wheel_rpm - target_rpm;
+
     }
 }

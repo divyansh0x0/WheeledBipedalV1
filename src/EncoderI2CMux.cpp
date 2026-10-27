@@ -24,7 +24,14 @@ static void encoder_read_callback(void *ctx) {
 
     const uint16_t angle_raw = is_as5600 ? (raw & AS5600_RAW_ANGLE_MASK) : (raw >> MT6701_RAW_ANGLE_SHIFT);
     const float max_counts = is_as5600 ? AS5600_RESOLUTION_COUNTS : MT6701_RESOLUTION_COUNTS;
-    const float new_angle = static_cast<float>(angle_raw) * FULL_ROTATION_DEGREES / max_counts;
+    const float raw_calculated_angle = static_cast<float>(angle_raw) * FULL_ROTATION_DEGREES / max_counts;
+    float new_angle = raw_calculated_angle;
+    if (state->is_inverted) {
+        new_angle = FULL_ROTATION_DEGREES - raw_calculated_angle;
+        if (new_angle >= FULL_ROTATION_DEGREES) {
+            new_angle -= FULL_ROTATION_DEGREES;
+        }
+    }
 
     const unsigned int current_time = F411::Clock::micros();
     state->raw_angle = new_angle;
@@ -123,7 +130,14 @@ namespace Biped::MagneticEncoder {
         const uint16_t raw = static_cast<uint16_t>(this->buffer[0] << 8 | this->buffer[1]);
         const uint16_t angle_raw = (this->type == EncoderType::AS5600) ? (raw & AS5600_RAW_ANGLE_MASK) : (raw >> MT6701_RAW_ANGLE_SHIFT);
         const float max_angle_bit = (this->type == EncoderType::AS5600) ? AS5600_RESOLUTION_COUNTS : MT6701_RESOLUTION_COUNTS;
-        const float new_angle = static_cast<float>(angle_raw) * FULL_ROTATION_DEGREES / max_angle_bit;
+        const float raw_calculated_angle = static_cast<float>(angle_raw) * FULL_ROTATION_DEGREES / max_angle_bit;
+        float new_angle = raw_calculated_angle;
+        if (this->is_inverted) {
+            new_angle = FULL_ROTATION_DEGREES - raw_calculated_angle;
+            if (new_angle >= FULL_ROTATION_DEGREES) {
+                new_angle -= FULL_ROTATION_DEGREES;
+            }
+        }
 
         const unsigned int current_time = F411::Clock::micros();
         this->raw_angle = new_angle;

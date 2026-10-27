@@ -80,7 +80,7 @@ namespace Biped::MagneticEncoder {
         float last_differentiate_angle{};
         unsigned int last_read_time_us = 0;
         unsigned int last_differentiate_time_us = 0;
-
+        bool is_inverted = false;
         LowPassFilterEMA rpm_filter{DEFAULT_RPM_EMA_ALPHA};
 
         std::optional<MagnetStatus> status{MagnetStatus::NotDetected};
@@ -119,6 +119,7 @@ namespace Biped::MagneticEncoder {
             {
                 .type = Encoder::EncoderType::MT6701,
                 .mux_index = 5, //wheel right
+                .is_inverted = true,
             }
         };
         uint8_t active_as5600_index = 0;

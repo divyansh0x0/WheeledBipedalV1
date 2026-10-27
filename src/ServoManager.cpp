@@ -13,8 +13,8 @@ namespace Biped {
         const LockedAntiPhaseSpeed left_pwm{left_wheel};
         const LockedAntiPhaseSpeed right_pwm{right_wheel};
 
-        m_left_wheel_pwm.setDutyCycle(left_pwm.toDuty());
         m_right_wheel_pwm.setDutyCycle(right_pwm.toDuty());
+        m_left_wheel_pwm.setDutyCycle(left_pwm.toDuty());
     }
 
     void ServoManager::initialize(float wheel_radius, float hip_joint_radius, MagneticEncoder::Encoder *wheel_left,
@@ -31,22 +31,22 @@ namespace Biped {
         upper_right_dir_pin::set(F411::GPIOStatus::LOW);
 
         // Set frequency FIRST so ARR is valid before channel outputs are enabled
-        m_left_wheel_pwm.setFrequency(32000);
         m_right_wheel_pwm.setFrequency(32000);
+        m_left_wheel_pwm.setFrequency(32000);
         m_thigh_left_pwm.setFrequency(32000);
         m_thigh_right_pwm.setFrequency(32000);
 
         // Initialize phased anti-lock pwm channels to 50% duty (stopped in locked anti-phase)
-        m_left_wheel_pwm.setDutyCycle(0.5f);
         m_right_wheel_pwm.setDutyCycle(0.5f);
+        m_left_wheel_pwm.setDutyCycle(0.5f);
 
         // Set duty of sign magnitude to zero
         m_thigh_left_pwm.setDutyCycle(0);
         m_thigh_right_pwm.setDutyCycle(0);
 
         // Enable timers to update generating the PWM signal internally
-        m_left_wheel_pwm.enable();
         m_right_wheel_pwm.enable();
+        m_left_wheel_pwm.enable();
         m_thigh_left_pwm.enable();
         m_thigh_right_pwm.enable();
 
@@ -61,12 +61,12 @@ namespace Biped {
         this->servos.wheel_left = wheel_left;
         this->servos.wheel_right = wheel_right;
 
-        constexpr float Kp = 0.004;
-        constexpr float Ki = 0.00;
+        constexpr float Kp = 0.013;//0.023 with surface
+        constexpr float Ki = 0.0010;
 
         l_wheel_pid_config.kp = Kp;
         l_wheel_pid_config.ki = Ki;
-        l_wheel_pid_config.integral_max = 1.0f;
+        l_wheel_pid_config.integral_max = 0.8f;
         l_wheel_pid_config.output_max = 0.8f;
 
         r_wheel_pid_config.kp = Kp;
@@ -104,7 +104,7 @@ namespace Biped {
     }
 
     void ServoManager::setRightWheelRPM(float rpm) {
-        r_wheel_pid_config.target = -rpm;
+        r_wheel_pid_config.target = rpm;
     }
 
     void ServoManager::setWheelRPM(const float rpm_left, const float rpm_right) {

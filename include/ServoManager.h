@@ -40,9 +40,9 @@ namespace Biped {
         PID::PIDController l_wheel_pi_controller{};
         PID::PIDController r_wheel_pi_controller{};
 
-        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2> m_left_wheel_pwm =
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2> m_right_wheel_pwm =
                 F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel2>();
-        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3> m_right_wheel_pwm =
+        F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3> m_left_wheel_pwm =
                 F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel3>();
         F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel1> m_thigh_left_pwm =
                 F411::PWM::PWM<F411::PWM::Timer::TIMER5, F411::PWM::TimerChannel::Channel1>();
@@ -54,8 +54,8 @@ namespace Biped {
         using upper_right_dir_pin = F411::Pins::A6;
 
 
-        using m_pin_left_wheel_dir = F411::Pins::A1;
-        using m_pin_right_wheel_dir = F411::Pins::A2;
+        using m_pin_right_wheel_dir = F411::Pins::A1;
+        using m_pin_left_wheel_dir = F411::Pins::A2;
         using m_pin_left_thigh_pwm = F411::Pins::A0;
         using m_pin_right_thigh_pwm = F411::Pins::A3;
 
