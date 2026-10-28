@@ -7,8 +7,6 @@
 
 namespace Biped {
     constexpr float MAX_ROLL_ANGLE = 45;
-    static BalancePID balance_pid{0.1350f, 0.0f, 0.0040f, 0.1350f, 0.0f, 0.0040f, 0, 0};
-
     void ServoManager::setPWM(float left_wheel, float right_wheel) {
         const LockedAntiPhaseSpeed left_pwm{left_wheel};
         const LockedAntiPhaseSpeed right_pwm{right_wheel};

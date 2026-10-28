@@ -135,7 +135,7 @@ namespace F411::MPU6050 {
             auto dt = static_cast<float>(current_time - last_update_time) / 1000'000.0f;
 
             // Fixed time constant tau = 0.5s for the filter
-            constexpr float tau = 0.5f;
+            constexpr float tau = 0.1f;
             const float alpha = tau / (tau + dt);
             float ax = getAccelX();
             float ay = getAccelY();

@@ -4,42 +4,46 @@
 
 #ifndef BIPEDALV1_BALANCEPID_H
 #define BIPEDALV1_BALANCEPID_H
-#include "drivers/MPU6050.h"
+
+#include "PIDController.h"
 
 namespace Biped {
     struct WheelSpeed {
         float left;
         float right;
     };
-    struct PIDVars {
-        float kp = 0;
-        float ki = 0;
-        float kd = 0;
-        float integral = 0;
-        float integral_max = 0.5f;  // Anti-windup clamp
-        float output_max = 1.0f;    // Clamp to [-1, 1] for LockedAntiPhaseSpeed
-        float target = 0.0f;
-        float last_error = 0;
-        unsigned int last_time = 0;
-    };
+
+    /**
+     * Cascaded balance controller built from two PIDControllers:
+     *
+     *   outer loop (speed):   avg wheel RPM error -> pitch angle offset (deg)
+     *   inner loop (balance): pitch angle error   -> motor command [-output_max, output_max]
+     *
+     * The PIDVars are owned by the caller (gains, limits, targets, and the controller
+     * state all live in them), so they can still be tweaked live, e.g. from CubeMonitor.
+     */
     class BalancePID {
-        WheelSpeed m_wheel_speed{};
-        PIDVars m_roll{};
-        PIDVars m_pitch{};
+        PID::PIDVars &m_balance_vars;
+        PID::PIDVars &m_speed_vars;
+        PID::PIDController m_balance;
+        PID::PIDController m_speed;
 
-        static float clamp(float value, float min_val, float max_val) {
-            return value < min_val ? min_val : (value > max_val ? max_val : value);
-        }
     public:
-        BalancePID(float Kp_roll, float Ki_roll, float Kd_roll, float Kp_pitch, float Ki_pitch, float Kd_pitch, float target_roll_angle,float target_pitch_angle);
+        BalancePID(PID::PIDVars &balance, PID::PIDVars &speed);
 
-        void setTargetPitch(const float target) { m_pitch.target = target; }
-        void setTargetRoll(const float target) { m_roll.target = target; }
-        
+        /// Target pitch angle for the inner loop (deg).
+        void setTargetAngle(const float angle) { m_balance_vars.target = angle; }
+
+        /// Target average wheel speed for the outer loop (RPM).
+        void setTargetSpeed(const float rpm) { m_speed_vars.target = rpm; }
+
         void reset();
 
-        float getPitchPID(float pitch, float gyro_y);
-        float getRollPID(float roll, float gyro_x);
+        /// Inner loop. Returns the motor command for the given pitch and pitch rate (gyro_y).
+        float getBalancePIDMotorSpeed(float pitch_angle, float gyro_y);
+
+        /// Outer loop. Returns the pitch angle offset (deg) to add to the base/CoM angle.
+        float getTargetAngle(float wheel_rpm_left, float wheel_rpm_right);
     };
 }
 #endif //BIPEDALV1_BALANCEPID_H

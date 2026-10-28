@@ -56,10 +56,9 @@ static volatile float left_wheel_error = 0;
     unsigned int t1 = Clock::millis();
     unsigned int count = 0;
     unsigned int t2 = Clock::millis();
-     float target_rpm = -30;
     float target_delta = 10;
     while (true) {
-        Context::update();
+        float target_rpm = -0;
         current[0] = Context::getCurrentHipLeft();
         current[1] = Context::getCurrentHipRight();
         voltage[0] = Context::getVoltageHipLeft();
@@ -93,6 +92,7 @@ static volatile float left_wheel_error = 0;
         //     target_rpm += target_delta;
         //     t2 = Clock::millis();
         // }
+        Context::update();
 
     }
 }

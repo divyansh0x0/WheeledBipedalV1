@@ -4,6 +4,7 @@
 
 #include "Context.h"
 
+#include "BalancePID.h"
 #include "ServoManager.h"
 #include "EncoderI2CMux.h"
 #include "BatteryManager.h"
@@ -16,6 +17,22 @@
 // Define mpu6050 in the GLOBAL namespace so CubeMonitor finds it easily without C++ namespace mangling
 
 namespace Biped::Context {
+    constexpr float COM_TARGET_ANGLE = 6.0f;
+    constexpr float TARGET_RPM = 0;
+    constexpr float MAX_PITCH = 20.0f;
+
+    static PID::PIDVars balance_pid_vars = {
+        .kp = 0.070f,
+        .kd = 0.0f,
+        .output_max = 1.0f,
+        .target = COM_TARGET_ANGLE,
+    };
+    static PID::PIDVars speed_pid_vars = {
+        .kp = 0.01f,
+        .kd = 0.0f,
+        .output_max = 20.0f,
+    };
+    static BalancePID balance_pid = {balance_pid_vars, speed_pid_vars};
     static Buzzer buzzer{};
     static FanController fan_controller{};
     static INA219Manager ina219_manager{};
@@ -23,7 +40,7 @@ namespace Biped::Context {
     static ServoManager servo_manager{};
     static F411::MPU6050::MPU6050<F411::I2C2, F411::MPU6050::GyroScale::_250,
         F411::MPU6050::AccelScale::g2> mpu6050({
-        .gx = 1.0082f, .gy = 7.8047f, .gz = 0.5791f, .ax = -0.007324f, .ay = -0.01074f
+        .gx = 0, .gy =0, .gz =0, .ax = 0, .ay = 0
     });
     static MagneticEncoder::EncoderI2CMux as5600mux{};
 
@@ -125,31 +142,47 @@ namespace Biped::Context {
         last_balance_loop_time_us = F411::Clock::micros();
 
         // buzzer.playTone(Buzzer::Tones::BEEP_BEEP);
+        servo_manager.setPWM(0,0);
         F411::Clock::delayMillis(200);
     }
 
+    void balance() {
+        const float pitch = -mpu6050.getPitch();
+        if (fabsf(pitch) > MAX_PITCH) {
+            balance_pid.reset();
+            servo_manager.setPWM(0,0);
+            return;
+        }
+        // Outer loop: wheel speed error -> pitch offset around the CoM angle
+        balance_pid.setTargetSpeed(TARGET_RPM);
+        const float angle_offset = balance_pid.getTargetAngle(
+            servo_manager.getLeftWheelRPM(), servo_manager.getRightWheelRPM());
+        balance_pid.setTargetAngle(COM_TARGET_ANGLE + angle_offset);
+
+        // Inner loop: pitch error -> motor command
+        const float balance_speed = balance_pid.getBalancePIDMotorSpeed(pitch, mpu6050.getGyroY());
+        servo_manager.setPWM(balance_speed, balance_speed);
+    }
+
     void update() {
-        const unsigned int current_time = F411::Clock::micros();
-        if (current_time - last_buzzer_update_time_us > LOW_BATTERY_ALERT_INTERVAL_US && battery.getBatteryPercentage() < LOW_BATTERY_THRESHOLD_PERCENT) {
-            buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
-            last_buzzer_update_time_us = current_time;
-        }
-        else if (battery.getBatteryPercentage() > LOW_BATTERY_THRESHOLD_PERCENT){
-            buzzer.stop();
-        }
         if (mpu_ready) {
             mpu6050.beginRead();
             mpu_ready = false;
         }
-        if (current_time - last_balance_loop_time_us >= BALANCE_LOOP_PERIOD_US) {
-            last_balance_loop_time_us = current_time;
-        }
-        if (current_time - last_hip_update_time_us >= HIP_DIRECTION_TOGGLE_INTERVAL_US) {
-            last_hip_update_time_us = current_time;
-            direction *= -1;
+        const unsigned int current_time = F411::Clock::micros();
+        if (current_time - last_buzzer_update_time_us > LOW_BATTERY_ALERT_INTERVAL_US && battery.getBatteryPercentage()
+            < LOW_BATTERY_THRESHOLD_PERCENT) {
+            buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
+            last_buzzer_update_time_us = current_time;
+        } else if (battery.getBatteryPercentage() > LOW_BATTERY_THRESHOLD_PERCENT) {
+            buzzer.stop();
         }
 
-        // Sample encoder raw angle at 500 Hz
+        if (current_time - last_balance_loop_time_us >= BALANCE_LOOP_PERIOD_US) {
+            last_balance_loop_time_us = current_time;
+            balance();
+        }
+
         if (current_time - last_as5600_sample_time_us >= ENCODER_SAMPLE_PERIOD_US) {
             last_as5600_sample_time_us = current_time;
             as5600mux.update();
