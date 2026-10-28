@@ -19,7 +19,7 @@ namespace Biped::Context {
 
     MagneticEncoder::EncoderI2CMux *getEncoderI2CMux();
 
-    float getPitch();
+    float   getPitch();
 
     float getCurrentHipLeft();
 
@@ -38,5 +38,10 @@ namespace Biped::Context {
     float getBatteryPercentage();
 
     float getBatteryVoltage();
+
+     float getLeftWheelRPM();
+     float getRightWheelRPM();
+     float getLeftWheelAngle();
+     float getRightWheelAngle();
 }
 #endif //BIPEDALV1_CONTEXT_H

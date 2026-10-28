@@ -17,19 +17,20 @@
 // Define mpu6050 in the GLOBAL namespace so CubeMonitor finds it easily without C++ namespace mangling
 
 namespace Biped::Context {
-    constexpr float COM_TARGET_ANGLE = 6.0f;
+    constexpr float COM_TARGET_ANGLE = -6.0f;
     constexpr float TARGET_RPM = 0;
     constexpr float MAX_PITCH = 20.0f;
 
     static PID::PIDVars balance_pid_vars = {
-        .kp = 0.070f,
-        .kd = 0.0f,
+        .kp = 0.110f,
+        .ki = 0.002f,
+        .kd = 0.0030f,
         .output_max = 1.0f,
         .target = COM_TARGET_ANGLE,
     };
     static PID::PIDVars speed_pid_vars = {
-        .kp = 0.01f,
-        .kd = 0.0f,
+        .kp = 0.005f,
+        .ki = 0.000f,
         .output_max = 20.0f,
     };
     static BalancePID balance_pid = {balance_pid_vars, speed_pid_vars};
@@ -121,7 +122,21 @@ namespace Biped::Context {
     float getBatteryVoltage() {
         return battery.getBatteryVoltage();
     }
+    float getLeftWheelRPM() {
+        return as5600mux.getWheelLeft()->rpm;
+    }
+    float getRightWheelRPM() {
+        return as5600mux.getWheelRight()->rpm;
+    }
 
+    float getLeftWheelAngle() {
+        return as5600mux.getWheelLeft()->normalized_angle;
+
+    }
+    float getRightWheelAngle() {
+
+        return as5600mux.getWheelRight()->normalized_angle;
+    }
     void initialize() {
         fan_controller.initialize();
         buzzer.initialize();
@@ -147,11 +162,14 @@ namespace Biped::Context {
     }
 
     void balance() {
-        const float pitch = -mpu6050.getPitch();
+        const float pitch = mpu6050.getPitch();
         if (fabsf(pitch) > MAX_PITCH) {
             balance_pid.reset();
             servo_manager.setPWM(0,0);
+            servo_manager.enableWheels(false);
             return;
+        }else {
+            servo_manager.enableWheels(true);
         }
         // Outer loop: wheel speed error -> pitch offset around the CoM angle
         balance_pid.setTargetSpeed(TARGET_RPM);
@@ -161,7 +179,7 @@ namespace Biped::Context {
 
         // Inner loop: pitch error -> motor command
         const float balance_speed = balance_pid.getBalancePIDMotorSpeed(pitch, mpu6050.getGyroY());
-        servo_manager.setPWM(balance_speed, balance_speed);
+        servo_manager.setPWM(-balance_speed, -balance_speed);
     }
 
     void update() {
@@ -192,7 +210,6 @@ namespace Biped::Context {
         if (current_time - last_encoder_differentiate_time_us >= ENCODER_DIFFERENTIATE_PERIOD_US) {
             last_encoder_differentiate_time_us = current_time;
             as5600mux.differentiate();
-            servo_manager.update();
         }
 
         ina219_manager.update();

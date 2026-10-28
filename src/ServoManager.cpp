@@ -105,16 +105,4 @@ namespace Biped {
         r_wheel_pid_config.target = rpm;
     }
 
-    void ServoManager::setWheelRPM(const float rpm_left, const float rpm_right) {
-        setLeftWheelRPM(rpm_left);
-        setRightWheelRPM(rpm_right);
-    }
-
-
-    void ServoManager::update() {
-        const float left_wheel_pid_output = l_wheel_pi_controller.getValue(servos.wheel_left->rpm, 0);
-        const float right_wheel_pid_output = r_wheel_pi_controller.getValue(servos.wheel_right->rpm, 0);
-
-        setPWM(left_wheel_pid_output, right_wheel_pid_output);
-    }
 }

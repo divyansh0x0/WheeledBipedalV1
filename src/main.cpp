@@ -75,14 +75,10 @@ static volatile float left_wheel_error = 0;
             count = 0;
             t1 = Clock::millis();
         }
-        right_wheel_rpm = servo_manager->getRightWheelRPM();
-        left_wheel_rpm = servo_manager->getLeftWheelRPM();
-        left_wheel_angle = servo_manager->getLeftWheelAngle();
-        right_wheel_angle = servo_manager->getRightWheelAngle();
-        servo_manager->setWheelRPM(target_rpm,target_rpm);
-
-        right_wheel_error = right_wheel_rpm - target_rpm;
-        left_wheel_error = left_wheel_rpm - target_rpm;
+        left_wheel_rpm = Context::getLeftWheelRPM();
+        right_wheel_rpm = Context::getRightWheelRPM();
+        left_wheel_angle = Context::getLeftWheelAngle();
+        right_wheel_angle = Context::getRightWheelAngle();
 
         // if (Clock::millis() - t2 > 1000) {
         //     if (target_rpm < -150)
@@ -93,6 +89,8 @@ static volatile float left_wheel_error = 0;
         //     t2 = Clock::millis();
         // }
         Context::update();
+        //
+        // servo_manager->setPWM(0.1f,0.1f);
 
     }
 }

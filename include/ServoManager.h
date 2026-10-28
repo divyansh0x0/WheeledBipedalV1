@@ -80,7 +80,6 @@ namespace Biped {
 
         void setLeftWheelRPM(float speed);
         void setRightWheelRPM(float speed);
-        void setWheelRPM(const float speed_left, const float speed_right);
 
         void update();
 
