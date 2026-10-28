@@ -17,20 +17,21 @@
 // Define mpu6050 in the GLOBAL namespace so CubeMonitor finds it easily without C++ namespace mangling
 
 namespace Biped::Context {
-    constexpr float COM_TARGET_ANGLE = -6.0f;
+    constexpr float COM_TARGET_ANGLE = -6.5f;
     constexpr float TARGET_RPM = 0;
     constexpr float MAX_PITCH = 20.0f;
 
     static PID::PIDVars balance_pid_vars = {
-        .kp = 0.110f,
+        .kp = 0.080f,
         .ki = 0.002f,
         .kd = 0.0030f,
         .output_max = 1.0f,
         .target = COM_TARGET_ANGLE,
     };
     static PID::PIDVars speed_pid_vars = {
-        .kp = 0.005f,
-        .ki = 0.000f,
+        .kp = 0.110f,
+        .ki = 0.001f,
+        .kd = 0.001f,
         .output_max = 20.0f,
     };
     static BalancePID balance_pid = {balance_pid_vars, speed_pid_vars};
