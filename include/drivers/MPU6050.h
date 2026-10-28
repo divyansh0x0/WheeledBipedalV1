@@ -60,6 +60,7 @@ namespace F411::MPU6050 {
             ACCEL_CONFIG,
             INT_PIN_CONFIG = 55,
             INT_ENABLE,
+            INT_STATUS = 58,
             FIFO_EN = 35,
             ACCEL_XOUT_H = 59,
             ACCEL_XOUT_L,
@@ -92,33 +93,56 @@ namespace F411::MPU6050 {
         MPU6050(ZeroOffsets zero_offsets) : m_zero_offsets(zero_offsets) {
         };
 
-        void initialize(bool enable_interrupt) {
+        bool initialize(bool enable_interrupt) {
             i2c::enable(true);
             i2c::setCallbacks(dmaReadCompleteCallback, nullptr, this);
-            // SET DLPF to delay imu to 2ms
+
+            // 1. Wait for MPU6050 to complete internal Power-On-Reset (POR can take 30-100ms on cold boot)
+            const uint32_t start_time = Clock::millis();
+            while (!i2c::probe(address)) {
+                if (Clock::millis() - start_time > 200) {
+                    return false;
+                }
+                Clock::delayMillis(5);
+            }
+
+            // 2. Wake up MPU-6050 and select PLL with X-axis gyroscope reference (CLKSEL = 1)
+            // MUST be done FIRST before configuring other registers, as chip powers on in SLEEP mode
+            constexpr uint8_t pwr_mgmt_1_reg_value = (0b001 << 0);
+            if (!i2c::writeRegister(address, Registers::PWR_MGMT_1, &pwr_mgmt_1_reg_value, 1)) {
+                return false;
+            }
+            Clock::delayMillis(10); // Wait for PLL to stabilize
+
+            // 3. Set DLPF (Digital Low Pass Filter) to delay IMU to 2ms (DLPF_CFG = 1, 1kHz Gyro output)
             constexpr uint8_t config_reg_value = (1u << 0);
             i2c::writeRegister(address, Registers::CONFIG, &config_reg_value, 1);
 
+            // 4. Set Gyroscope and Accelerometer full-scale range
             const uint8_t gyroscope_reg_value = (static_cast<uint8_t>(gyro_scale) << 3);
             const uint8_t accelerometer_reg_value = (static_cast<uint8_t>(accel_scale) << 3);
             i2c::writeRegister(address, Registers::GYRO_CONFIG, &gyroscope_reg_value, 1);
             i2c::writeRegister(address, Registers::ACCEL_CONFIG, &accelerometer_reg_value, 1);
 
-
-            constexpr uint8_t pwr_mgmt_1_reg_value = (0b001 << 0);
-            i2c::writeRegister(address, Registers::PWR_MGMT_1, &pwr_mgmt_1_reg_value, 1);
-
+            // 5. Set sample rate divider (500 Hz: 1 kHz / (1 + 1))
             constexpr uint8_t smprt_div_reg_value = 1;
             i2c::writeRegister(address, Registers::SMPRT_DIV, &smprt_div_reg_value, 1);
 
+            // 6. Configure Interrupt
             if (enable_interrupt) {
+                // INT_RD_CLEAR = 1: Interrupt status bits are cleared on any read operation
                 constexpr uint8_t int_pin_cfg = (1 << 4);
                 i2c::writeRegister(address, Registers::INT_PIN_CONFIG, &int_pin_cfg, 1);
 
-                constexpr uint8_t int_enable = (1 << 0);
+                constexpr uint8_t int_enable = (1 << 0); // DATA_RDY_EN
                 i2c::writeRegister(address, Registers::INT_ENABLE, &int_enable, 1);
+
+                // Clear any pending interrupt on the INT pin by reading INT_STATUS
+                uint8_t dummy_status = 0;
+                i2c::readRegister(address, Registers::INT_STATUS, &dummy_status, 1, false);
             }
             last_update_time = Clock::micros();
+            return true;
         }
 
 

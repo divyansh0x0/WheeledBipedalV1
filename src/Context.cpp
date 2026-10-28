@@ -17,22 +17,22 @@
 // Define mpu6050 in the GLOBAL namespace so CubeMonitor finds it easily without C++ namespace mangling
 
 namespace Biped::Context {
-    constexpr float COM_TARGET_ANGLE = -6.5f;
+    constexpr float COM_TARGET_ANGLE = -0.5f;
     constexpr float TARGET_RPM = 0;
     constexpr float MAX_PITCH = 20.0f;
 
     static PID::PIDVars balance_pid_vars = {
-        .kp = 0.080f,
-        .ki = 0.002f,
+        .kp = 0.0640f,
+        .ki = 0.007f,
         .kd = 0.0030f,
         .output_max = 1.0f,
         .target = COM_TARGET_ANGLE,
     };
     static PID::PIDVars speed_pid_vars = {
-        .kp = 0.110f,
+        .kp = 0.210f,
         .ki = 0.001f,
-        .kd = 0.001f,
-        .output_max = 20.0f,
+        .kd = 0.0060f,
+        .output_max = 5.0f,
     };
     static BalancePID balance_pid = {balance_pid_vars, speed_pid_vars};
     static Buzzer buzzer{};
@@ -51,11 +51,11 @@ namespace Biped::Context {
     static constexpr unsigned int BALANCE_LOOP_PERIOD_US = 1'000'000 / BALANCE_LOOP_RATE_HZ;
 
     // 500 Hz encoder angle sampling rate
-    static constexpr unsigned int ENCODER_SAMPLE_RATE_HZ = 500;
+    static constexpr unsigned int ENCODER_SAMPLE_RATE_HZ = 300;
     static constexpr unsigned int ENCODER_SAMPLE_PERIOD_US = 1'000'000 / ENCODER_SAMPLE_RATE_HZ;
 
     // 100 Hz encoder velocity differentiation rate & wheel motor control loop
-    static constexpr unsigned int ENCODER_DIFFERENTIATE_RATE_HZ = 100;
+    static constexpr unsigned int ENCODER_DIFFERENTIATE_RATE_HZ = 150;
     static constexpr unsigned int ENCODER_DIFFERENTIATE_PERIOD_US = 1'000'000 / ENCODER_DIFFERENTIATE_RATE_HZ;
 
     // Interval constants
@@ -71,6 +71,7 @@ namespace Biped::Context {
 
     static float direction = 1.0f;
     static volatile bool mpu_ready = false;
+    static unsigned int last_mpu_read_time_us = 0;
 
     float getRoll() {
         return mpu6050.getRoll();
@@ -139,27 +140,32 @@ namespace Biped::Context {
         return as5600mux.getWheelRight()->normalized_angle;
     }
     void initialize() {
+        F411::Clock::delayMillis(100);
+
         fan_controller.initialize();
         buzzer.initialize();
         ina219_manager.initialize();
         battery.initialize();
 
-        F411::Pins::B4::enableInputMode();
+        F411::Pins::B4::enableInputMode(F411::MemoryMap::GPIORegister::Pull::Down);
+
+        mpu6050.initialize(true);
 
         F411::InterruptManager::attachEXTIInterrupt(F411::InterruptManager::EXTILine::Line4, mpu_irq,
                                                     F411::InterruptManager::EXTISource::GPIOB,
                                                     F411::InterruptManager::EXTITrigger::RISING);
-        mpu6050.initialize(true);
+
         as5600mux.initialize();
         servo_manager.initialize(100.0f / 2, 173.0f / 2, as5600mux.getWheelLeft(), as5600mux.getWheelRight(),
                                  as5600mux.getHipLeft(), as5600mux.getHipRight());
         mpu6050.beginRead();
 
         last_balance_loop_time_us = F411::Clock::micros();
+        last_mpu_read_time_us = F411::Clock::micros();
 
         // buzzer.playTone(Buzzer::Tones::BEEP_BEEP);
         servo_manager.setPWM(0,0);
-        F411::Clock::delayMillis(200);
+        F411::Clock::delayMillis(100);
     }
 
     void balance() {
@@ -184,11 +190,18 @@ namespace Biped::Context {
     }
 
     void update() {
-        if (mpu_ready) {
-            mpu6050.beginRead();
-            mpu_ready = false;
-        }
         const unsigned int current_time = F411::Clock::micros();
+
+        if (mpu_ready) {
+            mpu_ready = false;
+            mpu6050.beginRead();
+            last_mpu_read_time_us = current_time;
+        } else if (current_time - last_mpu_read_time_us > 10'000) {
+            // Watchdog fallback: at 500 Hz, an interrupt is expected every 2 ms.
+            // If no interrupt triggered for > 10 ms, force a read to recover if an edge was missed or pin stuck.
+            mpu6050.beginRead();
+            last_mpu_read_time_us = current_time;
+        }
         if (current_time - last_buzzer_update_time_us > LOW_BATTERY_ALERT_INTERVAL_US && battery.getBatteryPercentage()
             < LOW_BATTERY_THRESHOLD_PERCENT) {
             buzzer.playTone(Buzzer::Tones::BATTERY_LOW);
@@ -214,7 +227,6 @@ namespace Biped::Context {
         }
 
         ina219_manager.update();
-        mpu6050.update();
         buzzer.update();
     }
 }

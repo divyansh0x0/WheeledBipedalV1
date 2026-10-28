@@ -49,36 +49,36 @@ namespace F411 {
         struct SCL1 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
-            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::Up;
         };
 
         struct SDA1 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
-            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::Up;
         };
         struct SCL3 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
-            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::Up;
         };
 
         struct SDA3 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
-            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::Up;
         };
 
         struct SCL2 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
-            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::Up;
         };
 
         struct SDA2 {
             static constexpr auto type = MemoryMap::GPIORegister::OutputType::OpenDrain;
             static constexpr auto speed = MemoryMap::GPIORegister::OutputSpeed::High_100MHz;
-            static constexpr auto pull = MemoryMap::GPIORegister::Pull::None;
+            static constexpr auto pull = MemoryMap::GPIORegister::Pull::Up;
         };
     }
 }

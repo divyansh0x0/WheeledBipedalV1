@@ -167,7 +167,10 @@ namespace F411 {
             // 4. Insert the new port source into those 4 bits
             MemoryMap::SYSCFG->EXTICR[reg_index] |= (static_cast<uint32_t>(exti_source) << bit_shift);
 
-            // 5. Unmask this line so the EXTI hardware actually listens to it
+            // 5. Clear any pending interrupt on this line before unmasking
+            EXTIReg->PR = (1 << line_num);
+
+            // 6. Unmask this line so the EXTI hardware actually listens to it
             EXTIReg->IMR |= (1 << line_num);
 
             // Enable the correct NVIC IRQ for this EXTI line
