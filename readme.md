@@ -2,7 +2,12 @@
 
 Firmware for a two-wheeled balancing robot built on the STM32F411CEU6 microcontroller.
 
-Phase one hardware and mechanical testing is complete. The original photos and STL mechanical design files from that phase are now redundant and have been retired from the repository. This codebase focuses on the active firmware implementation.
+![Robot balancing on table](Bipedal.png)
+
+![CAD model assembly](Assembly.JPG)
+
+> Note:
+> The robot balances on its wheels across a flat table surface. Hip actuators do not work in the current firmware and will be worked on in later revisions. 3D print files for mechanical parts and gearbox components are in the CAD/STL folder.
 
 ## System Hardware
 
@@ -16,7 +21,7 @@ Phase one hardware and mechanical testing is complete. The original photos and S
 
 ## Control Design
 
-The robot balances using a cascaded dual-loop controller.
+The robot balances using a cascaded dual-loop controller. Only wheel balancing is active right now, while the hip actuators haven't been programmed yet.
 
 The inner balancing loop runs at 200 Hz. It reads pitch and pitch rate from the MPU6050. A complementary filter blends accelerometer tilt measurements with gyroscope rates. The inner loop feeds corrective effort straight to the wheel motors.
 
@@ -24,7 +29,7 @@ The outer speed loop runs at 150 Hz. It reads average wheel speed in RPM from th
 
 Wheel motors run under locked anti-phase control at 32 kHz on Timer 5. In this mode, a 50 percent PWM duty cycle holds the motor stationary. Values above 50 percent drive the motor forward, while values below 50 percent drive it backward. This avoids separate direction pins on the wheel drives.
 
-Hip motors run under sign magnitude control using independent direction pins and variable duty cycle.
+Hip motors are mapped to sign magnitude control with independent direction pins, but they are not driven in the active control loop.
 
 A dedicated background task reads the battery voltage divider on ADC channel 4. When a 3S battery drops below 10 percent charge, the buzzer sounds an alert sequence.
 
@@ -73,11 +78,15 @@ A dedicated background task reads the battery voltage divider on ADC channel 4. 
 
 ```text
 BipedalV1/
+├── Assembly.JPG
+├── Bipedal.png
 ├── CMakeLists.txt
 ├── linker.ld
 ├── startup.cpp
 ├── mcuviewer.cfg
 ├── readme.md
+├── CAD/
+│   └── STL/
 ├── include/
 │   ├── BalancePID.h
 │   ├── BatteryManager.h
@@ -114,7 +123,23 @@ BipedalV1/
 
 ## Building and Flashing
 
-Prerequisites include an arm-none-eabi-gcc toolchain, CMake, Ninja, and either dfu-util or st-link utilities.
+### Prerequisites
+
+- Toolchain: `arm-none-eabi-gcc`
+- Build Tools: CMake and Ninja
+- Flash Utilities: `dfu-util` or `stlink-tools`
+
+Ubuntu or Debian:
+
+```bash
+sudo apt install gcc-arm-none-eabi cmake ninja-build dfu-util stlink-tools
+```
+
+Arch Linux:
+
+```bash
+sudo pacman -S arm-none-eabi-gcc arm-none-eabi-newlib cmake ninja dfu-util stlink
+```
 
 ### Compile the Project
 
