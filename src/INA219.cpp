@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 9/5/26.
-//
-
 #include "INA219.h"
 
 #include <bits/ranges_base.h>
@@ -18,8 +14,8 @@ namespace Biped {
         F411::I2C3::enable();
         F411::I2C3::setCallbacks(i2cReadCallback, nullptr, this);
 
-        constexpr float shunt_resistance = 0.100f; // in ohms
-        constexpr float max_current = 3; // in amps
+        constexpr float shunt_resistance = 0.100f;
+        constexpr float max_current = 3;
         const float current_lsb = max_current / 32768;
         const auto calibration_register_val = static_cast<uint16_t>(
             0.04096f / (current_lsb * shunt_resistance));

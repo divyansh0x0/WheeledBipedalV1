@@ -1,33 +1,29 @@
-//
-// Created by divyansh on 7/8/26.
-//
-
 #ifndef BIPEDALV1_INTERRUPT_H
 #define BIPEDALV1_INTERRUPT_H
 #include<cstdint>
 #include<drivers/MemoryMap.h>
 namespace F411 {
     struct NVICMemoryMap {
-        volatile uint32_t ISER[8]; // Offset: 0x000 (Interrupt Set Enable)
+        volatile uint32_t ISER[8];
         uint32_t RESERVED0[24];
-        volatile uint32_t ICER[8]; // Offset: 0x080 (Interrupt Clear Enable)
+        volatile uint32_t ICER[8];
         uint32_t RESERVED1[24];
-        volatile uint32_t ISPR[8]; // Offset: 0x100 (Interrupt Set Pending)
+        volatile uint32_t ISPR[8];
         uint32_t RESERVED2[24];
-        volatile uint32_t ICPR[8]; // Offset: 0x180 (Interrupt Clear Pending)
+        volatile uint32_t ICPR[8];
         uint32_t RESERVED3[24];
-        volatile uint32_t IABR[8]; // Offset: 0x200 (Interrupt Active bit)
+        volatile uint32_t IABR[8];
         uint32_t RESERVED4[56];
-        volatile uint8_t IP[240]; // Offset: 0x300 (Interrupt Priority - Byte accessible)
+        volatile uint8_t IP[240];
     };
 
     struct EXTIRegMemoryMap {
-        volatile uint32_t IMR; // Interrupt mask register
-        volatile uint32_t EMR; // Event mask register
-        volatile uint32_t RTSR; // Rising trigger selection register
-        volatile uint32_t FTSR; // Falling trigger selection register
-        volatile uint32_t SWIER; // Software interrupt event register
-        volatile uint32_t PR; // Pending register
+        volatile uint32_t IMR;
+        volatile uint32_t EMR;
+        volatile uint32_t RTSR;
+        volatile uint32_t FTSR;
+        volatile uint32_t SWIER;
+        volatile uint32_t PR;
     };
 
     inline auto EXTIReg = reinterpret_cast<EXTIRegMemoryMap *>(0x40013C00);
@@ -46,7 +42,6 @@ namespace F411 {
             FALLING = 1,
             BOTH=2,
         };
-        // A single generic attachDMAInterrupt function
         enum class DMAStream:uint32_t {
             S0,
             S1,
@@ -82,22 +77,22 @@ namespace F411 {
         };
 
         enum class IRQn : uint8_t {
-            EXTI0 = 6, // External Interrupt Line 0
-            EXTI1 = 7, // External Interrupt Line 1
-            EXTI2 = 8, // External Interrupt Line 2
-            EXTI3 = 9, // External Interrupt Line 3
-            EXTI4 = 10, // External Interrupt Line 4
-            DMA1_Stream0 = 11, // DMA1 DMAStream 0
-            DMA1_Stream1 = 12, // DMA1 DMAStream 1
-            DMA1_Stream2 = 13, // DMA1 DMAStream 2
-            DMA1_Stream3 = 14, // DMA1 DMAStream 3
-            DMA1_Stream4 = 15, // DMA1 DMAStream 4
-            DMA1_Stream5 = 16, // DMA1 DMAStream 5
-            DMA1_Stream6 = 17, // DMA1 DMAStream 6
+            EXTI0 = 6,
+            EXTI1 = 7,
+            EXTI2 = 8,
+            EXTI3 = 9,
+            EXTI4 = 10,
+            DMA1_Stream0 = 11,
+            DMA1_Stream1 = 12,
+            DMA1_Stream2 = 13,
+            DMA1_Stream3 = 14,
+            DMA1_Stream4 = 15,
+            DMA1_Stream5 = 16,
+            DMA1_Stream6 = 17,
             TIM1_UP_TIM10 = 25,
-            EXTI9_5 = 23, // External Interrupt Lines 5 through 9
-            EXTI15_10 = 40, // External Interrupt Lines 10 through 15
-            DMA1_Stream7 = 47, // DMA1 DMAStream 7
+            EXTI9_5 = 23,
+            EXTI15_10 = 40,
+            DMA1_Stream7 = 47,
         };
         enum class Timer {
             _1 = 0,
@@ -155,25 +150,15 @@ namespace F411 {
             const auto line_num = static_cast<uint8_t>(line);
             exti_callbacks[line_num] = callback;
 
-            // 1. Find which of the 4 EXTICR registers to use (0, 1, 2, or 3)
             const uint8_t reg_index = line_num / 4;
-
-            // 2. Find the bit shift (0, 4, 8, or 12)
             const uint8_t bit_shift = (line_num % 4) * 4;
 
-            // 3. Clear the 4 specific bits for this line without touching the others
             MemoryMap::SYSCFG->EXTICR[reg_index] &= ~(0xF << bit_shift);
-
-            // 4. Insert the new port source into those 4 bits
             MemoryMap::SYSCFG->EXTICR[reg_index] |= (static_cast<uint32_t>(exti_source) << bit_shift);
 
-            // 5. Clear any pending interrupt on this line before unmasking
             EXTIReg->PR = (1 << line_num);
-
-            // 6. Unmask this line so the EXTI hardware actually listens to it
             EXTIReg->IMR |= (1 << line_num);
 
-            // Enable the correct NVIC IRQ for this EXTI line
             if (line_num <= 4) {
                 enable(static_cast<IRQn>(static_cast<uint8_t>(IRQn::EXTI0) + line_num));
             } else if (line_num <= 9) {

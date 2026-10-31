@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 6/30/26.
-//
-
 #ifndef BIPEDALV1_RTC_H
 #define BIPEDALV1_RTC_H
 #include "Interrupt.h"

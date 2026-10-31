@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 9/10/26.
-//
-
 #include "EncoderI2CMux.h"
 #include "drivers/GPIO.h"
 
@@ -15,11 +11,10 @@ static void encoder_read_callback(void *ctx) {
     const uint16_t raw = static_cast<uint16_t>(state->buffer[0] << 8 | state->buffer[1]);
     const bool is_as5600 = state->type == Biped::MagneticEncoder::Encoder::EncoderType::AS5600;
 
-    // Angle resolution constants
-    constexpr uint16_t AS5600_RAW_ANGLE_MASK = 0x0FFF;   // 12-bit angle in bits [11:0]
-    constexpr uint8_t MT6701_RAW_ANGLE_SHIFT = 2;        // 14-bit angle in bits [15:2]
-    constexpr float AS5600_RESOLUTION_COUNTS = 4096.0f;  // 12-bit ADC range
-    constexpr float MT6701_RESOLUTION_COUNTS = 16384.0f; // 14-bit ADC range
+    constexpr uint16_t AS5600_RAW_ANGLE_MASK = 0x0FFF;
+    constexpr uint8_t MT6701_RAW_ANGLE_SHIFT = 2;
+    constexpr float AS5600_RESOLUTION_COUNTS = 4096.0f;
+    constexpr float MT6701_RESOLUTION_COUNTS = 16384.0f;
     constexpr float FULL_ROTATION_DEGREES = 360.0f;
 
     const uint16_t angle_raw = is_as5600 ? (raw & AS5600_RAW_ANGLE_MASK) : (raw >> MT6701_RAW_ANGLE_SHIFT);
@@ -42,10 +37,6 @@ static void encoder_read_callback(void *ctx) {
         mux->updateDataDMA();
 }
 
-// static void mux_write_callback(void *ctx) {
-//     const auto as5600mux = reinterpret_cast<Biped::AS5600::EncoderI2CMux *>(ctx);
-//     as5600mux->updateDataDMA();
-// }
 static constexpr uint8_t AS5600_ADDR = 0x36;
 static constexpr uint8_t MT6701_ADDR = 0x06;
 
@@ -60,10 +51,10 @@ enum class AS5600Registers : uint8_t {
     CONF_H = 0x07,
     CONF_L = 0x08,
     STATUS = 0x0B,
-    RAW_ANGLE_H = 0x0C, // 12-bit raw angle [11:8]
-    RAW_ANGLE_L = 0x0D, // 12-bit raw angle  [7:0]
-    ANGLE_H = 0x0E, // 12-bit filtered angle [11:8]
-    ANGLE_L = 0x0F, // 12-bit filtered angle  [7:0]
+    RAW_ANGLE_H = 0x0C,
+    RAW_ANGLE_L = 0x0D,
+    ANGLE_H = 0x0E,
+    ANGLE_L = 0x0F,
     AGC = 0x1A,
     MAGNITUDE_H = 0x1B,
     MAGNITUDE_L = 0x1C,
@@ -82,7 +73,6 @@ namespace Biped::MagneticEncoder {
             return;
         }
 
-        // AS5600 read
         uint8_t temp = 0;
         if (!i2c::readRegister(AS5600_ADDR, static_cast<uint8_t>(AS5600Registers::STATUS), &temp, 1)) {
             i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
@@ -113,7 +103,6 @@ namespace Biped::MagneticEncoder {
                 return;
             }
         } else {
-            //AS5600 read
             if (!i2c::readRegister(AS5600_ADDR, static_cast<uint8_t>(AS5600Registers::RAW_ANGLE_H), this->buffer, 2)) {
                 i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
                 this->status = MagnetStatus::ReadError;
@@ -161,18 +150,13 @@ namespace Biped::MagneticEncoder {
         const float angle_change_degrees = normalize_angle(this->raw_angle - this->last_differentiate_angle);
         const float elapsed_time_seconds = static_cast<float>(elapsed_time_us) * 1e-6f;
 
-        // RPM conversion formula:
-        // (angle_change_degrees / 360.0f) = revolutions
-        // Dividing by elapsed_time_seconds gives revolutions per second
-        // Multiplying by 60.0f gives revolutions per minute (RPM)
         constexpr float FULL_ROTATION_DEGREES = 360.0f;
         constexpr float SECONDS_PER_MINUTE = 60.0f;
-        constexpr float DEGREES_TO_RPM_RATIO = SECONDS_PER_MINUTE / FULL_ROTATION_DEGREES; // 60 / 360 = 1 / 6
+        constexpr float DEGREES_TO_RPM_RATIO = SECONDS_PER_MINUTE / FULL_ROTATION_DEGREES;
 
         const float instantaneous_rpm = (angle_change_degrees * DEGREES_TO_RPM_RATIO) / elapsed_time_seconds;
         this->raw_rpm = instantaneous_rpm;
 
-        // Apply dedicated Exponential Moving Average (EMA) low-pass filter to smooth RPM
         this->rpm = this->rpm_filter.update(instantaneous_rpm);
 
         this->last_differentiate_angle = this->raw_angle;
@@ -201,7 +185,6 @@ namespace Biped::MagneticEncoder {
         if (!i2c::writeRegister(PCA9548A_ADDR, channel_mask, nullptr, 0, false)) {
             i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
         }
-        // Return false when we've wrapped back to the start (full cycle done)
         return this->active_as5600_index != 0;
     }
 
@@ -211,19 +194,18 @@ namespace Biped::MagneticEncoder {
             if (current_encoder->type == Encoder::EncoderType::MT6701 && i2c::readRegister(
                     MT6701_ADDR, static_cast<uint8_t>(MT6701Registers::ANGLE_MSB),
                     current_encoder->buffer, 2, true)) {
-                return; // DMA started successfully, callback will handle the rest
+                return;
             }
             if (current_encoder->type == Encoder::EncoderType::AS5600 && i2c::readRegister(
                     AS5600_ADDR, static_cast<uint8_t>(AS5600Registers::RAW_ANGLE_H),
                     current_encoder->buffer, 2, true)) {
-                return; // DMA started successfully, callback will handle the rest
+                return;
             }
 
-            // Failed to update (NACK). Mark error, recover bus, and try the next channel.
             current_encoder->status = MagnetStatus::ReadError;
             i2c::recoverBus<F411::Pins::B6, F411::Pins::B7, F411::Peripherals::SCL1, F411::Peripherals::SDA1>();
             if (!this->changeChannelDMA()) {
-                return; // Wrapped around
+                return;
             }
         }
     }
@@ -242,7 +224,6 @@ namespace Biped::MagneticEncoder {
         i2c::enable(true);
         i2c::setCallbacks(encoder_read_callback, nullptr, this);
 
-        // Scan all 8 PCA9548A channels to detect connected devices
         for (uint8_t ch = 0; ch < 8; ch++) {
             const uint8_t mask = static_cast<uint8_t>(1 << ch);
             if (!i2c::writeRegister(PCA9548A_ADDR, mask, nullptr, 0, false)) {
@@ -257,7 +238,6 @@ namespace Biped::MagneticEncoder {
             }
         }
 
-        // Read all encoders multiple times to let the readings settle
         for (unsigned int i = 0; i < 20; i++) {
             for (unsigned int j = 0; j < this->as5600_count; j++) {
                 changeChannel();
@@ -266,7 +246,6 @@ namespace Biped::MagneticEncoder {
             }
         }
 
-        // Capture each encoder's current position as its zero reference and initialize differentiation & filter state
         const unsigned int init_time = F411::Clock::micros();
         for (unsigned int j = 0; j < this->as5600_count; j++) {
             this->encoder_states[j].reference_angle = this->encoder_states[j].raw_angle;

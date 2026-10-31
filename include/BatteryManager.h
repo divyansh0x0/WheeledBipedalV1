@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 7/17/26.
-//
-
 #ifndef BIPEDALV1_BATTERYMANAGER_H
 #define BIPEDALV1_BATTERYMANAGER_H
 #include "drivers/ADC.h"

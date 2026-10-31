@@ -28,27 +28,22 @@ namespace Biped {
         upper_right_dir_pin::enableOutputMode();
         upper_right_dir_pin::set(F411::GPIOStatus::LOW);
 
-        // Set frequency FIRST so ARR is valid before channel outputs are enabled
         m_right_wheel_pwm.setFrequency(32000);
         m_left_wheel_pwm.setFrequency(32000);
         m_thigh_left_pwm.setFrequency(32000);
         m_thigh_right_pwm.setFrequency(32000);
 
-        // Initialize phased anti-lock pwm channels to 50% duty (stopped in locked anti-phase)
         m_right_wheel_pwm.setDutyCycle(0.5f);
         m_left_wheel_pwm.setDutyCycle(0.5f);
 
-        // Set duty of sign magnitude to zero
         m_thigh_left_pwm.setDutyCycle(0);
         m_thigh_right_pwm.setDutyCycle(0);
 
-        // Enable timers to update generating the PWM signal internally
         m_right_wheel_pwm.enable();
         m_left_wheel_pwm.enable();
         m_thigh_left_pwm.enable();
         m_thigh_right_pwm.enable();
 
-        // Route the fully configured timer signals to the GPIO pins
         m_pin_left_wheel_dir::enableAlternateFunction<F411::Peripherals::TIMER5>();
         m_pin_right_wheel_dir::enableAlternateFunction<F411::Peripherals::TIMER5>();
         m_pin_left_thigh_pwm::enableAlternateFunction<F411::Peripherals::TIMER5>();
@@ -59,7 +54,7 @@ namespace Biped {
         this->servos.wheel_left = wheel_left;
         this->servos.wheel_right = wheel_right;
 
-        constexpr float Kp = 0.015;//0.023 with surface
+        constexpr float Kp = 0.015;
         constexpr float Ki = 0.02;
 
         l_wheel_pid_config.kp = Kp;

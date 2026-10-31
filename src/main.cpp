@@ -80,17 +80,6 @@ static volatile float left_wheel_error = 0;
         left_wheel_angle = Context::getLeftWheelAngle();
         right_wheel_angle = Context::getRightWheelAngle();
 
-        // if (Clock::millis() - t2 > 1000) {
-        //     if (target_rpm < -150)
-        //         target_delta = 10;
-        //     if (target_rpm >=-20)
-        //         target_delta = -20;
-        //     target_rpm += target_delta;
-        //     t2 = Clock::millis();
-        // }
         Context::update();
-        //
-        // servo_manager->setPWM(0.1f,0.1f);
-
     }
 }

@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 9/12/26.
-//
-
 #include "PIDController.h"
 
 #include "drivers/Clock.h"
@@ -30,7 +26,6 @@ namespace Biped::PID {
 
         const unsigned int curr_time = F411::Clock::micros();
 
-        // First run initialization
         if (pid->last_time_us == 0) {
             pid->last_time_us = curr_time;
             pid->last_error = pid->target - control_value;
@@ -39,13 +34,11 @@ namespace Biped::PID {
 
         const unsigned int dt = curr_time - pid->last_time_us;
         if (dt == 0) {
-            // Guard against multiple calls in the same microsecond
             return 0.0f;
         }
 
-        const float dt_sec = static_cast<float>(dt) * 1e-6f; // Convert microseconds to seconds
+        const float dt_sec = static_cast<float>(dt) * 1e-6f;
 
-        // Prevent massive spikes after a pause or long gap
         if (dt_sec > 1.0f) {
             pid->last_time_us = curr_time;
             pid->last_error = pid->target - control_value;
@@ -55,10 +48,8 @@ namespace Biped::PID {
         pid->last_time_us = curr_time;
         const float error = pid->target - control_value;
 
-        // Proportional term
         const float P = pid->kp * error;
 
-        // Integral term with output anti-windup clamping
         float I = 0.0f;
         if (pid->ki > 0.0f) {
             pid->integral += error * dt_sec;
@@ -66,7 +57,6 @@ namespace Biped::PID {
             const float clamped_I = clamp(I, -pid->integral_max, pid->integral_max);
             if (I != clamped_I) {
                 I = clamped_I;
-                // Back-calculate integral accumulation to prevent windup
                 pid->integral = I / pid->ki;
             }
         } else {
@@ -74,9 +64,6 @@ namespace Biped::PID {
             I = 0.0f;
         }
 
-        // Derivative term:
-        // When rate change of measurement is provided, derivative-on-measurement damping opposes it (-rate).
-        // If not provided (0.0f), fall back to calculating derivative of error over time.
         float derivative = 0.0f;
         if (control_value_rate_change != 0.0f) {
             derivative = -control_value_rate_change;
@@ -87,8 +74,7 @@ namespace Biped::PID {
 
         pid->last_error = error;
 
-        // Total output clamped to configured maximum limit
         const float output = P + I + D;
         return clamp(output, -pid->output_max, pid->output_max);
     }
-} // Biped::PID
+}

@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 6/29/26.
-//
-
 #ifndef BIPEDALV1_AS5600_H
 #define BIPEDALV1_AS5600_H
 #include <optional>
@@ -10,18 +6,13 @@
 
 namespace Biped::MagneticEncoder {
     using i2c = F411::I2C1;
-    /**
-     * Magnet status reported by the AS5600 STATUS register (0x0B).
-     *   MD (bit 5) – magnet detected
-     *   ML (bit 4) – magnet too weak  (AGC at max)
-     *   MH (bit 3) – magnet too strong (AGC at min)
-     */
+
     enum class MagnetStatus : uint8_t {
-        OK = 0, // Magnet detected, field strength in range
-        NotDetected = 1, // No magnet sensed at all
-        TooWeak = 2, // Magnet present but field is too weak
-        TooStrong = 3, // Magnet present but field is too strong
-        ReadError = 4, // I2C / mux communication failure
+        OK = 0,
+        NotDetected = 1,
+        TooWeak = 2,
+        TooStrong = 3,
+        ReadError = 4,
     };
 
     static constexpr size_t VELOCITY_HISTORY_SIZE = 16;
@@ -55,7 +46,6 @@ namespace Biped::MagneticEncoder {
                 m_is_initialized = true;
                 return m_filtered_value;
             }
-            // Standard Exponential Moving Average formula: y[k] = alpha * x[k] + (1 - alpha) * y[k-1]
             m_filtered_value = (m_alpha * input) + ((1.0f - m_alpha) * m_filtered_value);
             return m_filtered_value;
         }
@@ -93,44 +83,32 @@ namespace Biped::MagneticEncoder {
         void readMagnetStatus();
     };
 
-    // PCA9548A Multiplexer has been used
     class EncoderI2CMux {
-        // ── Addresses ─────────────────────────────────────────────
         static inline uint8_t PCA9548A_ADDR = 0x70;
         static constexpr uint8_t AS5600_ADDR = 0x36;
-
-        // ── AS5600 Register map ───────────────────────────────────
-
 
         unsigned int as5600_count = 4;
         Encoder encoder_states[4] = {
             {
                 .type = Encoder::EncoderType::AS5600,
-                .mux_index = 0, // hip right
+                .mux_index = 0,
             },
             {
                 .type = Encoder::EncoderType::AS5600,
-                .mux_index = 1, // hip left
+                .mux_index = 1,
             },
             {
                 .type = Encoder::EncoderType::MT6701,
-                .mux_index = 2, // wheel left
+                .mux_index = 2,
             },
             {
                 .type = Encoder::EncoderType::MT6701,
-                .mux_index = 5, //wheel right
+                .mux_index = 5,
                 .is_inverted = true,
             }
         };
         uint8_t active_as5600_index = 0;
         uint8_t active_channel = 0;
-        /**
-         * Select this encoder's active_channel on the PCA9548A.
-         * The PCA9548A has no register pointer — a single byte
-         * written after the address sets the active_channel mask.
-         * Uses writeByte: START → 0x70+W → mask → STOP
-         */
-
         unsigned int current_mux_index = 0;
 
     public:

@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 7/15/26.
-//
-
 #ifndef BIPEDALV1_ACTUATORMANAGER_H
 #define BIPEDALV1_ACTUATORMANAGER_H
 #include "EncoderI2CMux.h"

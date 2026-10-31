@@ -12,21 +12,16 @@ namespace F411 {
     enum GPIOStatus {
         HIGH, LOW,
     };
-    // Undefined - will be set manually later
     enum class AlternateFunction;
     template<unsigned int addr, unsigned int index>
     class GPIO {
     public:
         static constexpr unsigned int port_address = addr;
         static constexpr unsigned int pin_index = index;
-        
-
-
-
 
         static void toggle() {
             const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
-            if (port->ODR & (1 << index)) // check if pin was suppose to be high
+            if (port->ODR & (1 << index))
                 port->setPinLow(index);
             else
                 port->setPinHigh(index);
@@ -63,7 +58,7 @@ namespace F411 {
             constexpr uint8_t af = PeripheralTraits<Peripheral, GPIO>::af;
             const auto port = reinterpret_cast<MemoryMap::GPIORegister *>(addr);
             constexpr uint8_t reg = index/8;
-            constexpr uint8_t bitPos = (index % 8) * 4; // multiply by 4 because
+            constexpr uint8_t bitPos = (index % 8) * 4;
             port->AFR[reg] &= ~(0b1111 << bitPos);
             port->AFR[reg] |= static_cast<uint8_t>(af) << bitPos;
 

@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 8/27/26.
-//
-
 #ifndef BIPEDALV1_CONTEXT_H
 #define BIPEDALV1_CONTEXT_H
 #include "EncoderI2CMux.h"

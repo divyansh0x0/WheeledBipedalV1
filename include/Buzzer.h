@@ -37,7 +37,6 @@ namespace Biped {
         Tones m_tone = Tones::MANUAL;
         bool m_is_playing = false;
         
-        // State tracking variables
         uint8_t m_sequence_step = 0;
         unsigned int m_current_freq = 1000;
         bool m_sweep_up = true;

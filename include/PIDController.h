@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 9/12/26.
-//
-
 #ifndef BIPEDALV1_CONTROLLER_H
 #define BIPEDALV1_CONTROLLER_H
 #include <numbers>

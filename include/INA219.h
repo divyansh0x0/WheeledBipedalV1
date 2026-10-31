@@ -1,7 +1,3 @@
-//
-// Created by divyansh on 9/5/26.
-//
-
 #ifndef BIPEDALV1_INA219_H
 #define BIPEDALV1_INA219_H
 #include <cstdint>
@@ -22,13 +18,8 @@ namespace Biped {
         float current_lsb = 0;
 
         [[nodiscard]] float getVoltage() const {
-            // Combine MSB and LSB into a 16-bit unsigned integer
             uint16_t bus_voltage_raw = (buffer[2] << 8) | buffer[3];
-
-            // Shift right by 3 to remove the status flags
             uint16_t bus_voltage_shifted = bus_voltage_raw >> 3;
-
-            // Multiply by 4mV (0.004f) step size
             return static_cast<float>(bus_voltage_shifted) * 0.004f;
         }
         [[nodiscard]] float getPower() const {
