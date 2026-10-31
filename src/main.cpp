@@ -19,8 +19,6 @@ static volatile float right_wheel_rpm = 0;
 static volatile float left_wheel_rpm= 0;
 static volatile float left_wheel_angle= 0;
 static volatile float right_wheel_angle= 0;
-static volatile float right_wheel_error = 0;
-static volatile float left_wheel_error = 0;
 [[noreturn]] int main() {
     using namespace Biped;
     using namespace F411;
@@ -55,10 +53,7 @@ static volatile float left_wheel_error = 0;
     mux->update();
     unsigned int t1 = Clock::millis();
     unsigned int count = 0;
-    unsigned int t2 = Clock::millis();
-    float target_delta = 10;
     while (true) {
-        float target_rpm = -0;
         current[0] = Context::getCurrentHipLeft();
         current[1] = Context::getCurrentHipRight();
         voltage[0] = Context::getVoltageHipLeft();
